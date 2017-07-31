@@ -64,6 +64,7 @@ class Pyro4Server(object):
         self._simulated = simulated
         self._logfile = logfile
         self.logger = logging.getLogger(module_logger.name+"."+name)
+        self.serverlog = self.logger # For compatibility
         self._local = None
         self._running = False
 

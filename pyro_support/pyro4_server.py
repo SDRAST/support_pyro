@@ -8,7 +8,10 @@ import time
 import datetime
 
 import Pyro4
-from pyro4tunneling import Pyro4Tunnel, TunnelError
+try:
+    from pyro4tunneling import Pyro4Tunnel, TunnelError
+except ImportError:
+    from pyrotunneling.pyrotunneling import Pyro4Tunnel, TunnelError
 
 from .configuration import config
 

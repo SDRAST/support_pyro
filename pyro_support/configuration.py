@@ -2,6 +2,8 @@ import logging
 
 import Pyro4
 
+from . import __version__ as pyro_support_version
+
 module_logger = logging.getLogger(__name__)
 
 class Configuration(object):
@@ -23,10 +25,8 @@ class Configuration(object):
 
     def __str__(self):
         pyro4_version_str = "Pyro4 version: {}".format(Pyro4.__version__)
-        # pyro4_server_version_str = "pyro4_server version: {}".format(pyro4_server_version)
-        # pyro4_client_verison_str = "pyro4_client version: {}".format(pyro4_client_version)
-        # msg = "\n".join([pyro4_version, pyro4_server_version, pyro4_client_verison])
-        msg = "\n".join([pyro4_version])
+        pyro4_support_version_str = "pyro_support version: {}".format(pyro4_support_version)
+        msg = "\n".join([pyro4_version, pyro4_support_version_str])
         return msg
 
 config = Configuration()

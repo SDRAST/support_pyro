@@ -1,4 +1,5 @@
 # pyro4_server.py
+from __future__ import print_function
 import logging
 import os
 import signal
@@ -12,7 +13,6 @@ from pyro4tunneling import Pyro4Tunnel, TunnelError
 from .configuration import config
 
 __all__ = ["Pyro4Server","Pyro4ServerError"]
-__version__ = "1.0.0"
 
 module_logger = logging.getLogger(__name__)
 

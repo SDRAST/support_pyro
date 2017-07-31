@@ -1,21 +1,20 @@
 # pyro4_server.py
 import logging
 import os
-import uuid
 import signal
 import threading
 import time
 import datetime
 
 import Pyro4
-from Pyro4.util import SerializerBase
 
-from support.logs import logging_config
 from support.tunneling import Tunnel, TunnelingException
 from pyro3_util import full_name
 from pyro4_util import arbitrary_tunnel, check_connection
 
 __all__ = ["Pyro4Server"]
+__version__ = "0.1.0"
+module_logger = logging.getLogger(__name__)
 
 def blocking(fn):
     """
@@ -53,10 +52,9 @@ class Pyro4ServerError(Pyro4.errors.CommunicationError):
 
 class Pyro4Server(object):
     """
-    A super class for servers.
+    A super class for Pyro4 servers.
     """
-
-    def __init__(self, name, obj=None, simulated=False, local=False, **kwargs):
+    def __init__(self, name, simulated=False, local=False, logfile=None):
         """
         Setup logging for the server, in addition to creating a
         lock. Subclasses of this class can interact directly with the lock,
@@ -65,16 +63,14 @@ class Pyro4Server(object):
             name (str): The name of the Pyro server.
             simulated (bool): Simulation mode bool
             local (bool): Local run bool
-            **kwargs: TAMS_BackEnd.util.logging_config kwargs
         """
         self._logfile = kwargs.get("logfile", "")
-        self.serverlog = logging_config(**kwargs)
+        self.logger = logging.getLogger(module_logger.name+"."+name)
         self.lock = threading.Lock()
         self._simulated = simulated
         if self._simulated:
-            self.serverlog.name = self.serverlog.name + ".simulator"
-            self.serverlog.info("Running in simulation mode")
-
+            self.logger.name = self.logger.name + ".simulator"
+            self.logger.info("Running in simulation mode")
         self._local = local
         self._name = name
         self._running = False
@@ -82,13 +78,6 @@ class Pyro4Server(object):
         self._remote_ip = None
         self._remote_port = None
         self._proc = []
-
-        self._exposed_obj = None
-        if obj:
-            self._exposed_obj = obj
-        else:
-            pass
-
         self.server_uri = None
         self.daemon_thread = None
         self.daemon = None
@@ -135,10 +124,10 @@ class Pyro4Server(object):
         is shut down.
         """
         try:
-            self.serverlog.info("Closing down server.")
+            self.logger.info("Closing down server.")
             self.close()
         except Exception as e:
-            self.serverlog.error("Error shutting down daemon: {}".format(e), exc_info=True)
+            self.logger.error("Error shutting down daemon: {}".format(e), exc_info=True)
         finally:
             os.kill(os.getpid(), signal.SIGKILL)
 
@@ -188,11 +177,11 @@ class Pyro4Server(object):
         proc_ns = arbitrary_tunnel(self._remote_ip, 'localhost', local_forwarding_port, ns_port,
                                 port=self._remote_port, username=remote_username)
 
-        self.serverlog.debug("")
+        self.logger.debug("")
         self._proc.append(proc_ns)
         # now check the tunnel
         success = check_connection(Pyro4.locateNS, timeout=2, args=('localhost', local_forwarding_port))
-        self.serverlog.debug("Lauching server.")
+        self.logger.debug("Lauching server.")
         if success:
             self._launch_server_local('localhost', ns_port,
                                       create_tunnel=True,
@@ -217,21 +206,18 @@ class Pyro4Server(object):
             - create_tunnel (bool): Whether or not to create a tunnel to the remote object.
             - threaded (bool): If we're running this on a thread, then we can't use signaling.
         """
-        self.serverlog.info("Connecting to the Pyro nameserver.")
+        self.logger.info("Connecting to the Pyro nameserver.")
 
         self.daemon = Pyro4.Daemon()
-        if self._exposed_obj: # means we're not inheriting
-            self.server_uri = self.daemon.register(self._exposed_obj)
-        else: # means we're using Pyro4Server as parent class.
-            self.server_uri = self.daemon.register(self)
+        self.server_uri = self.daemon.register(self)
         if create_tunnel:
             obj_host, obj_port = self.server_uri.location.split(":")
             arbitrary_tunnel(self._remote_ip, 'localhost', obj_port, obj_port, **kwargs)
 
-        self.serverlog.debug("Server uri is {}".format(self.server_uri))
+        self.logger.debug("Server uri is {}".format(self.server_uri))
         self.ns = Pyro4.locateNS(port=ns_port, host=ns_host)
         self.ns.register(self._name, self.server_uri)
-        self.serverlog.info("{} available".format(self._name))
+        self.logger.info("{} available".format(self._name))
 
         if not threaded:
             signal.signal(signal.SIGINT, self.handler)
@@ -239,7 +225,7 @@ class Pyro4Server(object):
             pass
         with self.lock:
             self._running = True
-        self.serverlog.debug("Starting request loop")
+        self.logger.debug("Starting request loop")
         self.daemon.requestLoop(self.running)
 
     def close(self):
@@ -262,10 +248,7 @@ class Pyro4Server(object):
         """
         with self.lock:
             self._running = False
-            if self._exposed_obj:
-                self.daemon.unregister(self._exposed_obj)
-            else:
-                self.daemon.unregister(self)
+            self.daemon.unregister(self)
             # if we use daemon.close, this will hang forever in a thread.
             # This might appear to hang.
 
@@ -275,7 +258,7 @@ class Pyro4Server(object):
             try:
                 self.ns.remove(self._name)
             except Pyro4.errors.ConnectionClosedError as err:
-                self.serverlog.debug("Connection to object already shutdown: {}".format(err))
+                self.logger.debug("Connection to object already shutdown: {}".format(err))
 
             for proc in self._proc:
                 proc.kill()
@@ -310,7 +293,7 @@ class Pyro4PublisherServer(Pyro4Server):
         if self._publishing_started:
             return
         self._publishing_started = True
-        self.serverlog.info("Starting to publish power meter readings")
+        self.logger.info("Starting to publish power meter readings")
 
         if self.publisher.stopped():
             self.publisher = self.publisher_thread_class(self, bus=self.bus, **self.publisher_thread_kwargs)
@@ -346,27 +329,6 @@ class Pyro4PublisherServer(Pyro4Server):
             None
         """
         self.publisher.unpause()
-
-def pyro4message(success=False, data=None, timestamp=None, id=None):
-    """
-    Create a dictionary that can be sent to the client.
-    This is a wrapper around existing data. The idea is that by having
-    known parameters, it can streamline client interaction with the server.
-    Args:
-        success (bool): A flag to indicate if the data was received successfully
-        data (anything): The data, whatever it may be
-        timestamp (datetime.datetime.utcnow()): When the message was created
-        id (uuid.uuid1): a unique identifier for the message
-    Returns:
-        dict
-    """
-    if not timestamp: timestamp = datetime.datetime.utcnow().isoformat()
-    if not id: id = str(uuid.uuid1())
-
-    return {'success':success,
-            'data':data,
-            'timestamp':timestamp,
-            'id':id}
 
 if __name__ == '__main__':
 

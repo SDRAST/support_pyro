@@ -11,7 +11,7 @@ import Pyro4
 try:
     from pyro4tunneling import Pyro4Tunnel, TunnelError
 except ImportError:
-    from pyrotunneling.pyrotunneling import Pyro4Tunnel, TunnelError
+    from pyro4tunneling.pyro4tunnel import Pyro4Tunnel, TunnelError
 
 from .configuration import config
 

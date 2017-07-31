@@ -12,37 +12,36 @@ from support.tunneling import Tunnel, TunnelingException
 from pyro3_util import full_name
 from pyro4_util import arbitrary_tunnel, check_connection
 
-__all__ = ["Pyro4Server"]
+__all__ = ["Pyro4Server","Pyro4ServerError"]
 __version__ = "0.1.0"
+
 module_logger = logging.getLogger(__name__)
 
-def blocking(fn):
+def blocking(func):
     """
     This decorator will make it such that the server can do
-    nothing else while fn is being called.
+    nothing else while func is being called.
     """
-
-    def wrapper(*args, **kwargs):
-        lock = args[0].lock
+    def wrapper(self, *args, **kwargs):
+        lock = self.lock
         with lock:
-            res = fn(*args, **kwargs)
+            res = func(self, *args, **kwargs)
         return res
-
     return wrapper
 
 
-def non_blocking(fn):
+def non_blocking(func):
     """
     Proceed as normal unless a functuon with the blocking
     decorator has already been called
     """
 
-    def wrapper(*args, **kwargs):
-        lock = args[0].lock
+    def wrapper(self, *args, **kwargs):
+        lock = self.lock
         while lock.locked():
             time.sleep(0.01)
         time.sleep(0.01)
-        res = fn(*args, **kwargs)
+        res = func(self, *args, **kwargs)
         return res
 
     return wrapper
@@ -263,90 +262,5 @@ class Pyro4Server(object):
             for proc in self._proc:
                 proc.kill()
 
-
-class Pyro4PublisherServer(Pyro4Server):
-
-    def __init__(self, name, publisher_thread_class,
-                            publisher_thread_kwargs={},
-                            bus=None,
-                            obj=None, **kwargs):
-
-        Pyro4Server.__init__(self, name, obj=obj, **kwargs)
-        self.bus = bus
-        self.publisher_thread_class = publisher_thread_class
-        self.publisher_thread_kwargs = publisher_thread_kwargs
-        self.publisher = self.publisher_thread_class(self, bus=self.bus, **self.publisher_thread_kwargs)
-        self._publishing_started = False
-
-    #@Pyro4.expose
-    @property
-    def publishing_started(self):
-        return self._publishing_started
-
-    #@Pyro4.expose
-    def start_publishing(self):
-        """
-        Start publishing power meter readings
-        Returns:
-            None
-        """
-        if self._publishing_started:
-            return
-        self._publishing_started = True
-        self.logger.info("Starting to publish power meter readings")
-
-        if self.publisher.stopped():
-            self.publisher = self.publisher_thread_class(self, bus=self.bus, **self.publisher_thread_kwargs)
-            self.publisher.daemon = True
-
-        self.publisher.start()
-
-    #@Pyro4.expose
-    def stop_publishing(self):
-        """
-        Stop the publisher.
-        Returns:
-            None
-        """
-        self.publisher.stop()
-        self.publisher.join()
-        self._publishing_started = False
-
-    #@Pyro4.expose
-    def pause_publshing(self):
-        """
-        Pause the publisher
-        Returns:
-            None
-        """
-        self.publisher.pause()
-
-    #@Pyro4.expose
-    def unpause_publishing(self):
-        """
-        Unpause the publisher
-        Returns:
-            None
-        """
-        self.publisher.unpause()
-
 if __name__ == '__main__':
-
-    # msg = Pyro4Message(1, False, {'el': 0.0})
-    # from TAMS_BackEnd.examples.basic_pyro4_server import BasicServer
-
     server = Pyro4Server("TestServer", simulated=True)
-
-    # print(msg['timestamp'])
-    # @Pyro4.expose
-    # class BasicServer(object):
-    #
-    #     def __init__(self):
-    #         pass
-    #
-    #     def square(self, x):
-    #
-    #         return x**2
-    #
-    # server = Pyro4Server("BasicServer", obj=BasicServer(),loglevel=logging.DEBUG)
-    # server.launch_server('192.168.0.143', remote_port=2222, remote_username='dean', ns_host='localhost', ns_port=2224)

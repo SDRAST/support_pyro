@@ -9,6 +9,8 @@ import datetime
 import Pyro4
 from pyro4tunneling import Pyro4Tunnel, TunnelError
 
+from .configuration import config
+
 __all__ = ["Pyro4Server","Pyro4ServerError"]
 __version__ = "1.0.0"
 
@@ -32,7 +34,6 @@ def non_blocking(func):
     Proceed as normal unless a functuon with the blocking
     decorator has already been called
     """
-
     def wrapper(self, *args, **kwargs):
         lock = self.lock
         while lock.locked():
@@ -43,19 +44,18 @@ def non_blocking(func):
 
     return wrapper
 
-class Pyro4ServerError(Pyro4.errors.CommunicationError):
+class Pyro4ServerError(TunnelError):
     pass
 
 class Pyro4Server(object):
     """
-    A super class for Pyro4 servers.
+    A super class for Pyro4 servers. This class is meant to be subclassed.
+    Attributes with a proceding underscore "_" are meant to be properties,
+    accessible to any client.
     """
-    def __init__(self, name, simulated=False, logfile=None):
+    def __init__(self, name="Pyro4Server", simulated=False, logfile=None):
         """
-        Setup logging for the server, in addition to creating a
-        lock. Subclasses of this class can interact directly with the lock,
-        or through the blocking and non-blocking decorators.
-        Args:
+        Keyword Args:
             name (str): The name of the Pyro server.
             simulated (bool): Simulation mode bool
             local (bool): Local run bool
@@ -68,34 +68,36 @@ class Pyro4Server(object):
         self._running = False
 
         self.tunnel = None
-        self.remote_ip = None
+        self.remote_server_name = None
         self.remote_port = None
         self.proc = []
         self.server_uri = None
         self.daemon_thread = None
         self.daemon = None
+        self.threaded = False
         self.lock = threading.Lock()
 
     @property
     def logfile(self):
         return self._logfile
 
-    #@Pyro4.expose
+    @config.expose
     def running(self):
+        self.logger.debug("running: Called.")
         with self.lock:
             return self._running
 
-    #@Pyro4.expose
+    @config.expose
     @property
     def name(self):
         return self._name
 
-    #@Pyro4.expose
+    @config.expose
     @property
     def locked(self):
         return self.lock.locked()
 
-    #@Pyro4.expose
+    @config.expose
     @property
     def simulated(self):
         """
@@ -103,12 +105,12 @@ class Pyro4Server(object):
         """
         return self._simulated
 
-    #@Pyro4.expose
+    @config.expose
     @property
     def local(self):
         return self._local
 
-    #@Pyro4.expose
+    @config.expose
     def ping(self):
         """
         Method to call if one wants to test connection to server.
@@ -178,6 +180,8 @@ class Pyro4Server(object):
                                     ns_port=ns_port,
                                     local=local,
                                     local_forwarding_port=local_forwarding_port)
+        self.threaded = threaded
+        self._local = self.tunnel.local
 
         self.daemon = Pyro4.Daemon(port=obj_port)
         self.tunnel.register_remote_daemon(self.daemon, reverse=reverse) # this sets up the tunnel
@@ -213,19 +217,30 @@ class Pyro4Server(object):
         ```
         """
         with self.lock:
+            t0 = time.time()
+            t1 = time.time()
             self._running = False
             self.daemon.unregister(self)
+            # self.logger.debug("close: Took {:.3f} seconds to unregister daemon".format(time.time() - t1))
             # if we use daemon.close, this will hang forever in a thread.
             # This might appear to hang.
-            self.daemon.shutdown()
+            t1 = time.time()
+            if self.threaded:
+                self.daemon.shutdown()
+            else:
+                self.daemon.close()
+            # self.logger.debug("close: Took {:.3f} seconds to shutdown daemon".format(time.time() - t1))
             # remove the name/uri from the nameserver so we can't try to access
             # it later when there is no daemon running.
+            t1 = time.time()
             try:
                 self.tunnel.ns.remove(self._name)
             except Pyro4.errors.ConnectionClosedError as err:
                 self.logger.debug("Connection to object already shutdown: {}".format(err))
             for proc in self.proc:
                 proc.kill()
+            # self.logger.debug("close: Took {:.3f} seconds to remove object from nameserver".format(time.time() - t1))
+            self.logger.debug("close: Took {:.3f} seconds to run close method".format(time.time() - t0))
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)

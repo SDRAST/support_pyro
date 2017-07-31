@@ -4,6 +4,7 @@ import logging
 
 import Pyro4
 
+__version__ = "1.0.0"
 module_logger = logging.getLogger(__name__)
 
 class AutoReconnectingProxy(Pyro4.core.Proxy):

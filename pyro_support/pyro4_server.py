@@ -123,7 +123,6 @@ class Pyro4Server(object):
         p = Pyro4.Proxy(uri)
         p._pyroBind()
         ```
-
         Or use `p.ping()`, which will internally call `p._pyroBind` anyways.
         """
         return True

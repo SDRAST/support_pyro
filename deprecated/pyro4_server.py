@@ -302,4 +302,4 @@ class Pyro4Server(object):
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     server = Pyro4Server("TestServer", simulated=True)
-    server.launch_server(local=True, ns_port=9090, obj_port=9091,obj_id="Pyro4Server.TestServer")
+    server.launch_server(local=True, ns_port=9090, obj_port=9091, obj_id="Pyro4Server.TestServer")

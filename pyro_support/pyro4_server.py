@@ -8,10 +8,9 @@ import datetime
 
 import Pyro4
 from pyro4tunneling import Pyro4Tunnel, TunnelError
-# from pyro4tunneling.util import check_connection, arbitrary_tunnel
 
 __all__ = ["Pyro4Server","Pyro4ServerError"]
-__version__ = "0.1.0"
+__version__ = "1.0.0"
 
 module_logger = logging.getLogger(__name__)
 
@@ -194,77 +193,6 @@ class Pyro4Server(object):
             self._running = True
         self.logger.debug("Starting request loop")
         self.daemon.requestLoop(self.running)
-    #     # if remote_server_name == 'localhost':
-    #     #     self._remote_ip = "localhost"
-    #     #     return self._launch_server_local(ns_host, ns_port, threaded=threaded)
-    #     # elif remote_server_name in full_name:
-    #     #     self._tunnel = Tunnel(remote_server_name, username=tunnel_username)
-    #     #     self._remote_ip = "localhost"
-    #     #     self._remote_port = self._tunnel.port
-    #     # else:
-    #     #     self._remote_ip = remote_server_name # means we supplied an actual ip address.
-    #     #     self._remote_port = remote_port
-    #
-    #     # now with tunnel in place (or not depending on condition), we can create
-    #     # further ssh tunnels to allow us to register object.
-    #     # First establish what port to use for local forwarding
-    #     if not local_forwarding_port:
-    #         local_forwarding_port = ns_port
-    #
-    #     # Create tunnel to nameserver
-    #     proc_ns = arbitrary_tunnel(self._remote_ip, 'localhost', local_forwarding_port, ns_port,
-    #                             port=self._remote_port, username=remote_username)
-    #
-    #     self.logger.debug("")
-    #     self._proc.append(proc_ns)
-    #     # now check the tunnel
-    #     success = check_connection(Pyro4.locateNS, timeout=2, args=('localhost', local_forwarding_port))
-    #     self.logger.debug("Lauching server.")
-    #     if success:
-    #         self._launch_server_local('localhost', ns_port,
-    #                                   create_tunnel=True,
-    #                                   threaded=threaded,
-    #                                   username=remote_username,
-    #                                   port=self._remote_port,
-    #                                   reverse=True)
-    #     else:
-    #         raise TunnelingException("Couldn't create tunnel to remote nameserver")
-    #
-    # def _launch_server_local(self, ns_host, ns_port, create_tunnel=False, threaded=False, **kwargs):
-    #     """
-    #     Connect to a Pyro name server. This also sets up the program such that
-    #     a kill command (ctrl+c) will attempt to call close on the server before exiting.
-    #     This is useful in the case of an APC server, as it is necessary to issue
-    #     the close command before exiting a program with a socket connection to the APC.
-    #     Args:
-    #         ns_host (str): The name server host.
-    #         ns_port (int): The name server port.
-    #         kwargs: For arbitrary_tunnel
-    #     kwargs:
-    #         - create_tunnel (bool): Whether or not to create a tunnel to the remote object.
-    #         - threaded (bool): If we're running this on a thread, then we can't use signaling.
-    #     """
-    #     self.logger.info("Connecting to the Pyro nameserver.")
-    #
-    #     self.daemon = Pyro4.Daemon()
-    #     self.server_uri = self.daemon.register(self)
-    #     if create_tunnel:
-    #         obj_host, obj_port = self.server_uri.location.split(":")
-    #         arbitrary_tunnel(self._remote_ip, 'localhost', obj_port, obj_port, **kwargs)
-    #
-    #     self.logger.debug("Server uri is {}".format(self.server_uri))
-    #     self.ns = Pyro4.locateNS(port=ns_port, host=ns_host)
-    #     self.ns.register(self._name, self.server_uri)
-    #     self.logger.info("{} available".format(self._name))
-    #
-    #     if not threaded:
-    #         signal.signal(signal.SIGINT, self.handler)
-    #     else:
-    #         pass
-    #     with self.lock:
-    #         self._running = True
-    #     self.logger.debug("Starting request loop")
-    #     self.daemon.requestLoop(self.running)
 
     def close(self):
         """

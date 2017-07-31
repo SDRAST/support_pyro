@@ -35,7 +35,6 @@ class Pyro4Client(object):
     """
     A simple wrapper around Pyro4.Proxy.
     This is meant to be subclassed. Client side methods are meant to be put here.
-
     """
     def __init__(self, tunnel, proxy_name, use_autoconnect=False):
         """
@@ -68,4 +67,3 @@ class Pyro4Client(object):
             self.server = self.tunnel.get_pyro_object(self.proxy_name)
             self.logger.info("New server: {}".format(self.server))
         self.logger.debug("Took {:.2f} seconds to check connection.".format(time.time() - t0))
-        

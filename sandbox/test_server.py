@@ -27,7 +27,7 @@ def main():
     parsed = simple_parse_args().parse_args()
     server = Pyro4Server("TestServer", simulated=True)
     server.launch_server(local=True, ns_port=parsed.ns_port,ns_host=parsed.ns_host,
-                        obj_port=parsed.ns_port+1, obj_id="Pyro4Server.TestServer")
+                        obj_port=0, obj_id="Pyro4Server.TestServer")
 
 if __name__ == '__main__':
     main()

@@ -10,23 +10,12 @@ def setup_logging():
 
     timestamp = datetime.datetime.utcnow().strftime("%j-%Hh%Mm")
     logfile='example_{}.log'.format(timestamp)
-    major_py = sys.version_info[0]
-    if major_py == 3:
-        logging.basicConfig(level=logging.DEBUG,
-                        format = '%(levelname)s:%(name)s:%(message)s',
-                        handlers=[logging.StreamHandler(), logging.FileHandler(logfile)])
-    elif major_py == 2:
-        logging.basicConfig(level=logging.DEBUG,
-                        format = '%(levelname)s:%(name)s:%(message)s',
-                        filename=logfile)
-
-        console = logging.StreamHandler()
-        console.setLevel(logging.DEBUG)
-        # set a format which is simpler for console use
-        formatter = logging.Formatter('%(levelname)s:%(name)s:%(message)s')
-        console.setFormatter(formatter)
-        # add the handler to the root logger
-        logging.getLogger('').addHandler(console)
+    logging.basicConfig(level=logging.DEBUG)
+    formatter = logging.Formatter('%(levelname)s:%(name)s:%(message)s')
+    fh = logging.FileHandler(logfile)
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    logging.getLogger('').addHandler(fh)
 
 def simple_parse_args():
 

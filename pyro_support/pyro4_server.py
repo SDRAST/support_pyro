@@ -80,7 +80,8 @@ class Pyro4Server(object):
         self.daemon = None
         self.threaded = False
         self.lock = threading.Lock()
-
+        
+    @config.expose
     @property
     def logfile(self):
         return self._logfile

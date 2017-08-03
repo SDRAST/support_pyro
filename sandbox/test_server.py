@@ -1,15 +1,32 @@
+from __future__ import print_function
+import sys
 import logging
 import datetime
 import argparse
 
 import Pyro4
 
-timestamp = datetime.datetime.utcnow().strftime("%j-%Hh%Mm")
-logfile='example_{}.log'.format(timestamp)
-logging.basicConfig(level=logging.DEBUG,
-                    handlers=[logging.StreamHandler(), logging.FileHandler(logfile)])
+def setup_logging():
 
-from pyro_support.pyro4_server import Pyro4Server
+    timestamp = datetime.datetime.utcnow().strftime("%j-%Hh%Mm")
+    logfile='example_{}.log'.format(timestamp)
+    major_py = sys.version_info[0]
+    if major_py == 3:
+        logging.basicConfig(level=logging.DEBUG,
+                        format = '%(levelname)s:%(name)s:%(message)s',
+                        handlers=[logging.StreamHandler(), logging.FileHandler(logfile)])
+    elif major_py == 2:
+        logging.basicConfig(level=logging.DEBUG,
+                        format = '%(levelname)s:%(name)s:%(message)s',
+                        filename=logfile)
+
+        console = logging.StreamHandler()
+        console.setLevel(logging.DEBUG)
+        # set a format which is simpler for console use
+        formatter = logging.Formatter('%(levelname)s:%(name)s:%(message)s')
+        console.setFormatter(formatter)
+        # add the handler to the root logger
+        logging.getLogger('').addHandler(console)
 
 def simple_parse_args():
 
@@ -22,8 +39,9 @@ def simple_parse_args():
 
     return parser
 
-
 def main():
+    setup_logging()
+    from pyro_support.pyro4_server import Pyro4Server
     parsed = simple_parse_args().parse_args()
     server = Pyro4Server("TestServer", simulated=True)
     server.launch_server(local=True, ns_port=parsed.ns_port,ns_host=parsed.ns_host,

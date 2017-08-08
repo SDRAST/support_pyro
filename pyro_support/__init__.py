@@ -1,7 +1,7 @@
 __version__ = "1.1.0"
-
-from .pyro4_server import Pyro4Server
-from .pyro4_client import AutoReconnectingProxy
+from .pyro4_server import *
+from .pyro4_client import *
+from .configuration import config
 
 def async_method(func):
     """

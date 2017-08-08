@@ -11,11 +11,21 @@ def setup_logging():
     timestamp = datetime.datetime.utcnow().strftime("%j-%Hh%Mm")
     logfile='example_{}.log'.format(timestamp)
     logging.basicConfig(level=logging.DEBUG)
+
     formatter = logging.Formatter('%(levelname)s:%(name)s:%(message)s')
     fh = logging.FileHandler(logfile)
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(formatter)
-    logging.getLogger('').addHandler(fh)
+
+    sh = logging.StreamHandler()
+    sh.setLevel(logging.DEBUG)
+    sh.setFormatter(formatter)
+
+    root_logger = logging.getLogger('')
+    root_logger.handlers = []
+    root_logger.addHandler(fh)
+    root_logger.addHandler(sh)
+
 
 def simple_parse_args():
 

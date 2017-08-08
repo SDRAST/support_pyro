@@ -80,7 +80,7 @@ class Pyro4Server(object):
         self.daemon = None
         self.threaded = False
         self.lock = threading.Lock()
-        
+
     @config.expose
     @property
     def logfile(self):
@@ -246,7 +246,51 @@ class Pyro4Server(object):
             # self.logger.debug("close: Took {:.3f} seconds to remove object from nameserver".format(time.time() - t1))
             self.logger.debug("close: Took {:.3f} seconds to run close method".format(time.time() - t0))
 
+    @classmethod
+    def flaskify(cls, *args, **kwargs):
+        """
+        Create a flask server using the PyroServer.
+        There are two use cases:
+        You pass parameters to instantiate a new instance of cls, or
+        You pass an object of cls as the first argument, and this is the server used.
+        """
+        import json
+        from flask import Flask, jsonify, request
+        if len(args) > 0:
+            if isinstance(args[0], cls):
+                server = args[0]
+        else:
+            server = cls(*args, **kwargs)
+        app = Flask(server.name)
+
+        @app.route("/<method_name>", methods=['GET'])
+        def method(method_name):
+            get_data = json.loads(list(request.args.keys())[0])
+            args = get_data['args']
+            kwargs = get_data['kwargs']
+            if method_name in cls.__dict__:
+                method = getattr(server, method_name)
+                exposed = getattr(method, "_pyroExposed", None)
+                if exposed:
+                    status = "method {}._pyroExposed: {}".format(method_name, exposed)
+                    try:
+                        result = method(*args, **kwargs)
+                    except Exception as err:
+                        status = status + "\n" + str(err)
+                        result = None
+                else:
+                    status = "method {} is not exposed".format(method_name)
+                    result = None
+            else:
+                status = "method {} is not an server method".format(method_name)
+                result = None
+            return jsonify(data={"status":status, "result":result})
+
+        return app, server
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
+    # app, server = Pyro4Server.flaskify(name='TestServer', simulated=True)
+    # app.run(debug=False)
     server = Pyro4Server("TestServer", simulated=True)
     server.launch_server(local=True, ns_port=9090, obj_port=9091, obj_id="Pyro4Server.TestServer")

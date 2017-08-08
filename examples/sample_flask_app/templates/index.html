@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang='en'>
+{% extends "layout.html" %}
+{% block body %}
+<div class='container' id='main-container'>
+    <div class='row'>
+        <h3>Basic Server</h3>
+    </div>
+    <div class='row'>
+        <input type="text" id="argument" name="argument" value="2">
+        <button id="square">Square!</button>
+        <div id='result'></div>
+    </div>
+    <div class='row'>
+        <div id='status-bar' class='footer'></div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block script_zone %}
+{% endblock %}

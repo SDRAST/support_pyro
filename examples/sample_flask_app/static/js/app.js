@@ -23,7 +23,15 @@ function App(){
 
     this.init = function(){
         this.setStatus(this)("Howdy there!") ;
-        $("#square").on('click', this.square(this)) ;
+        $('#mySpinbox').spinbox({
+    	    value: 1,
+    	    min: 1,
+    	    max: 10000,
+    	    step: 1,
+    	    decimalMark: '.',
+    	});
+        $("#arg-up").on('click', this.square(this))
+        $("#arg-down").on('click', this.square(this))
     }
 
     this.setStatus = function(self){
@@ -34,7 +42,7 @@ function App(){
 
     this.square = function(self){
         return function(){
-            var arg = $("#argument").val();
+            var arg = $('#mySpinbox').spinbox('getValue')
             util.requestData("square", [arg], {},[self.square_cb(self)]);
         }
     }

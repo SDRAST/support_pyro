@@ -125,5 +125,5 @@ def async_method(func):
                 this.cb_updates = f(cb_updates)
 
         return func(self, *args, **kwargs)
-
+    wrapper._async_method = True
     return wrapper

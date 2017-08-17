@@ -323,13 +323,17 @@ class Pyro4Server(object):
             method_name = method_pair[0]
             method = getattr(server, method_name)
             exposed = getattr(method, "_pyroExposed", None)
+            async = getattr(method, "_async_method", None)
             if exposed:
                 server.logger.info("Registering method: {}".format(method_name))
                 def wrapper(method, method_name):
                     def f(data):
-                        args = data['args']
-                        kwargs = data['kwargs']
-                        kwargs['socket_info'] = {'app':app, 'socketio':socketio}
+                        args = data.get("args", [])
+                        kwargs = data.get("kwargs", {})
+                        async = getattr(method, "_async_method", None)
+                        server.logger.info("Async status: {}".format(async))
+                        if async:
+                            kwargs['socket_info'] = {'app':app, 'socketio':socketio}
                         try:
                             result = method(*args, **kwargs)
                             status = "success"

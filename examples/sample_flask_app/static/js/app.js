@@ -16,22 +16,30 @@ var util = {
             }
         });
     },
-
+    makeSpinBox: function(bindElement, id, cb){
+        $(bindElement).prepend(function(){
+            return $(`
+            <div class="spinbox" data-initialize="spinbox" id="{}">
+            <input type='text' class='form-control input-mini spinbox-input'>
+                <div class='spinbox-buttons btn-group btn-group-vertical'>
+                    <button type='button' class='btn btn-default spinbox-up btn-xs' id='arg-up'>
+                        <span class='glyphicon glyphicon-chevron-up'></span><span class='sr-only'>Increase</span>
+                    </button>
+                    <button type='button' class='btn btn-default spinbox-down btn-xs' id='arg-down'>
+                        <span class='glyphicon glyphicon-chevron-down'></span><span class='sr-only'>Decrease</span>
+                    </button>
+                </div>
+            </div>`.format(id)).on('click', cb)
+        });
+    }
 }
 
 function App(){
 
     this.init = function(){
         this.setStatus(this)("Howdy there!") ;
-        $('#mySpinbox').spinbox({
-    	    value: 1,
-    	    min: 1,
-    	    max: 10000,
-    	    step: 1,
-    	    decimalMark: '.',
-    	});
-        $("#arg-up").on('click', this.square(this))
-        $("#arg-down").on('click', this.square(this))
+        util.makeSpinBox("#spinBoxRow","mySpinbox",this.square(this),{step:10.0});
+        $("#mySpinbox").spinbox({step:10.0});
     }
 
     this.setStatus = function(self){

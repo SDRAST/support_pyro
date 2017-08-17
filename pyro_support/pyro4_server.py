@@ -1,5 +1,6 @@
 # pyro4_server.py
 from __future__ import print_function
+import inspect
 import logging
 import os
 import signal
@@ -256,6 +257,8 @@ class Pyro4Server(object):
         """
         import json
         from flask import Flask, jsonify, request
+        from flask_socketio import SocketIO, send, emit
+
         if len(args) > 0:
             if isinstance(args[0], cls):
                 server = args[0]
@@ -264,10 +267,15 @@ class Pyro4Server(object):
         app = Flask(server.name)
 
         @app.route("/<method_name>", methods=['GET'])
-        def method(method_name):
-            get_data = json.loads(list(request.args.keys())[0])
-            args = get_data['args']
-            kwargs = get_data['kwargs']
+        def method(data):
+            try:
+                get_data = json.loads(list(request.args.keys())[0])
+            except json.decoder.JSONDecodeError:
+                get_data = request.args
+            args = get_data.get('args', ())
+            kwargs = get_data.get('kwargs', {})
+            if not (isinstance(args, list) or isinstance(args, tuple)):
+                args = [args]
             if method_name in cls.__dict__:
                 method = getattr(server, method_name)
                 exposed = getattr(method, "_pyroExposed", None)
@@ -284,9 +292,85 @@ class Pyro4Server(object):
             else:
                 status = "method {} is not an server method".format(method_name)
                 result = None
+            print({"status":status, "result":result})
             return jsonify(data={"status":status, "result":result})
 
         return app, server
+
+    @classmethod
+    def flaskify_io(cls, *args, **kwargs):
+        """
+        Create a flaskio server using the PyroServer.
+        There are two use cases:
+        You pass parameters to instantiate a new instance of cls, or
+        You pass an object of cls as the first argument, and this is the server used.
+        """
+        import json
+        from flask import Flask, jsonify, request
+        from flask_socketio import SocketIO, send, emit
+
+        if len(args) > 0:
+            if isinstance(args[0], cls):
+                server = args[0]
+        else:
+            server = cls(*args, **kwargs)
+        server.logger.info("Making flask socketio app.")
+        app = Flask(server.name)
+        app.config['SECRET_KEY'] = "radio_astronomy_is_cool"
+        socketio = SocketIO(app)
+
+        for method_pair in inspect.getmembers(cls):
+            method_name = method_pair[0]
+            method = getattr(server, method_name)
+            exposed = getattr(method, "_pyroExposed", None)
+            if exposed:
+                server.logger.info("Registering method: {}".format(method_name))
+                def wrapper(method, method_name):
+                    def f(data):
+                        args = data['args']
+                        kwargs = data['kwargs']
+                        kwargs['socket_info'] = {'app':app, 'socketio':socketio}
+                        try:
+                            result = method(*args, **kwargs)
+                            status = "success"
+                        except Exception as err:
+                            result = None
+                            status = str(err)
+                            server.logger.error(status)
+                        with app.test_request_context("/"):
+                            socketio.emit(method_name, {"status":status, "result":result})
+                    return f
+
+                socketio.on(method_name)(wrapper(method, method_name))
+
+        # @socketio.on("method")
+        # def method(data):
+        #     method_name = data['name']
+        #     args = data['args']
+        #     kwargs = data['kwargs']
+        #     for method_pair in inspect.getmembers(cls):
+        #         method_name = method_pair[0]
+        #         method = getattr(server, method_name)
+        #         exposed = getattr(method, "_pyroExposed", None)
+        #         if exposed:
+        #             status = "method {}._pyroExposed: {}".format(method_name, exposed)
+        #             kwargs['socket_info'] = {'app':app, 'socketio':socketio}
+        #             try:
+        #                 result = method(*args, **kwargs)
+        #             except Exception as err:
+        #                 status = status + "\n" + str(err)
+        #                 result = None
+        #         else:
+        #             status = "method {} is not exposed".format(method_name)
+        #             result = None
+        #     else:
+        #         status = "method {} is not an server method".format(method_name)
+        #         result = None
+        #     # print({"status":status, "result":result})
+        #     with app.test_request_context("/"):
+        #         socketio.emit(method_name, {"status":status, "result":result})
+
+        return app, socketio, server
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)

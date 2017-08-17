@@ -1,4 +1,6 @@
-__version__ = "1.1.0"
+__version__ = "1.2.0"
+from flask_socketio import send, emit
+
 from .pyro4_server import *
 from .pyro4_client import *
 from .configuration import config
@@ -75,32 +77,52 @@ def async_method(func):
             this = self
         else:
             this = wrapper
-
         if 'cb_info' in kwargs:
             cb_info = kwargs['cb_info']
             kwargs.pop('cb_info')
         else:
             cb_info = None
+
+        if 'socket_info' in kwargs:
+            socket_info = kwargs['socket_info']
+            kwargs.pop('socket_info')
+        else:
+            socket_info = None
+
         this.cb_info = cb_info
         if not cb_info:
             this.cb = lambda *args, **kwargs: None
             this.cb_updates = lambda *args, **kwargs: None
             this.cb_handler = None
         else:
-            cur_handler = getattr(self, "cb_handler", None)
-            this.cb_handler = cb_info.get('cb_handler', cur_handler)
-            cb = cb_info.get('cb',name+'_cb')
-            cb_updates = cb_info.get('cb_updates', name+"_cb_updates")
+            cb = cb_info.get('cb', name+"_cb")
             this.cb_name = cb
+            cb_updates = cb_info.get('cb_updates', name+"_cb_updates")
             this.cb_updates_name = cb_updates
-            try:
-                this.cb = getattr(this.cb_handler, cb)
-            except AttributeError:
-                this.cb = lambda *args, **kwargs: None
-            try:
-                this.cb_updates = getattr(this.cb_handler, cb_updates)
-            except AttributeError:
-                this.cb_updates = lambda *args, **kwargs: None
+
+            if not socket_info:
+                cur_handler = getattr(self, "cb_handler", None)
+                this.cb_handler = cb_info.get('cb_handler', cur_handler)
+                try:
+                    this.cb = getattr(this.cb_handler, cb)
+                except AttributeError:
+                    this.cb = lambda *args, **kwargs: None
+                try:
+                    this.cb_updates = getattr(this.cb_handler, cb_updates)
+                except AttributeError:
+                    this.cb_updates = lambda *args, **kwargs: None
+            else:
+                app = socket_info['app']
+                socketio = socket_info['socketio']
+                def f(cb_name):
+                    def emit_f(*args, **kwargs):
+                        with app.test_request_context("/"):
+                            socketio.emit(cb_name, {"args": args, "kwargs":kwargs})
+                    return emit_f
+
+                this.cb_handler = None
+                this.cb = f(cb)
+                this.cb_updates = f(cb_updates)
 
         return func(self, *args, **kwargs)
 

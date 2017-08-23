@@ -298,6 +298,56 @@ class Pyro4Server(object):
                 self.logger.debug("Connection to object already shutdown: {}".format(err))
             for proc in self.proc:
                 proc.kill()
+    @classmethod
+    def flaskify_io(cls, *args, **kwargs):
+        """
+        Create a flaskio server using the PyroServer.
+        There are two use cases:
+        You pass parameters to instantiate a new instance of cls, or
+        You pass an object of cls as the first argument, and this is the server used.
+        """
+        import json
+        from flask import Flask, jsonify, request
+        from flask_socketio import SocketIO, send, emit
+        import gevent
+
+        if len(args) > 0:
+            if isinstance(args[0], cls):
+                server = args[0]
+        else:
+            server = cls(*args, **kwargs)
+        server.logger.info("Making flask socketio app.")
+        app = Flask(server.name)
+        app.config['SECRET_KEY'] = "radio_astronomy_is_cool"
+        socketio = SocketIO(app)
+        @socketio.on("method")
+        def method(data):
+            method_name = data['name']
+            args = data['args']
+            kwargs = data['kwargs']
+            for method_pair in inspect.getmembers(cls):
+                method_name = method_pair[0]
+                method = getattr(server, method_name)
+                exposed = getattr(method, "_pyroExposed", None)
+                if exposed:
+                    status = "method {}._pyroExposed: {}".format(method_name, exposed)
+                    kwargs['socket_info'] = {'app':app, 'socketio':socketio}
+                    try:
+                        result = method(*args, **kwargs)
+                    except Exception as err:
+                        status = status + "\n" + str(err)
+                        result = None
+                else:
+                    status = "method {} is not exposed".format(method_name)
+                    result = None
+            else:
+                status = "method {} is not an server method".format(method_name)
+                result = None
+            # print({"status":status, "result":result})
+            with app.test_request_context("/"):
+                socketio.emit(method_name, {"status":status, "result":result})
+
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)

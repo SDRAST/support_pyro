@@ -77,6 +77,7 @@ def async_method(func):
             this = self
         else:
             this = wrapper
+
         if 'cb_info' in kwargs:
             cb_info = kwargs['cb_info']
             kwargs.pop('cb_info')
@@ -90,6 +91,7 @@ def async_method(func):
             socket_info = None
 
         this.cb_info = cb_info
+        this.socket_info = socket_info
         if not cb_info:
             this.cb = lambda *args, **kwargs: None
             this.cb_updates = lambda *args, **kwargs: None
@@ -99,7 +101,6 @@ def async_method(func):
             this.cb_name = cb
             cb_updates = cb_info.get('cb_updates', name+"_cb_updates")
             this.cb_updates_name = cb_updates
-
             if not socket_info:
                 cur_handler = getattr(self, "cb_handler", None)
                 this.cb_handler = cb_info.get('cb_handler', cur_handler)

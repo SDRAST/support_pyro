@@ -308,6 +308,7 @@ class Pyro4Server(object):
         import json
         from flask import Flask, jsonify, request
         from flask_socketio import SocketIO, send, emit
+        import gevent
 
         if len(args) > 0:
             if isinstance(args[0], cls):
@@ -331,12 +332,18 @@ class Pyro4Server(object):
                         args = data.get("args", [])
                         kwargs = data.get("kwargs", {})
                         async = getattr(method, "_async_method", None)
-                        server.logger.info("Async status: {}".format(async))
-                        if async:
-                            kwargs['socket_info'] = {'app':app, 'socketio':socketio}
+                        server.logger.info("{}: Async status: {}".format(method_name, async))
+                        server.logger.info("{}: kwargs: {}".format(method_name, kwargs))
+                        server.logger.info("{}: args: {}".format(method_name, args))
                         try:
-                            result = method(*args, **kwargs)
-                            status = "success"
+                            if async:
+                                kwargs['socket_info'] = {'app':app, 'socketio':socketio}
+                                g = gevent.Greenlet.spawn(method, *args, **kwargs)
+                                status = "gevent.Greenlet started"
+                                result = None
+                            else:
+                                result = method(*args, **kwargs)
+                                status = "success"
                         except Exception as err:
                             result = None
                             status = str(err)
@@ -346,33 +353,6 @@ class Pyro4Server(object):
                     return f
 
                 socketio.on(method_name)(wrapper(method, method_name))
-
-        # @socketio.on("method")
-        # def method(data):
-        #     method_name = data['name']
-        #     args = data['args']
-        #     kwargs = data['kwargs']
-        #     for method_pair in inspect.getmembers(cls):
-        #         method_name = method_pair[0]
-        #         method = getattr(server, method_name)
-        #         exposed = getattr(method, "_pyroExposed", None)
-        #         if exposed:
-        #             status = "method {}._pyroExposed: {}".format(method_name, exposed)
-        #             kwargs['socket_info'] = {'app':app, 'socketio':socketio}
-        #             try:
-        #                 result = method(*args, **kwargs)
-        #             except Exception as err:
-        #                 status = status + "\n" + str(err)
-        #                 result = None
-        #         else:
-        #             status = "method {} is not exposed".format(method_name)
-        #             result = None
-        #     else:
-        #         status = "method {} is not an server method".format(method_name)
-        #         result = None
-        #     # print({"status":status, "result":result})
-        #     with app.test_request_context("/"):
-        #         socketio.emit(method_name, {"status":status, "result":result})
 
         return app, socketio, server
 

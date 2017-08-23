@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang='en'>
+
+<head>
+	<title>Basic Server</title>
+	<!-- Got this from skeleton html -->
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<!-- Styling -->
+	<link href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" rel="stylesheet">
+	<link href="//www.fuelcdn.com/fuelux/3.13.0/css/fuelux.min.css" rel="stylesheet">
+	<link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+	<link type="text/css" href="{{ url_for('static',filename='css/styles.css')}}" rel="stylesheet">
+	<script type=text/javascript>
+	  $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+	</script>
+</head>
+<body>
+	{% block body %}{% endblock %}
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+	<script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+	<script src="//www.fuelcdn.com/fuelux/3.13.0/js/fuelux.min.js"></script>
+	<script src="{{ url_for('static', filename='js/format.js')}}"></script>
+	<script src="{{ url_for('static', filename='js/app.js')}}"></script>
+	{% block script_zone %}{% endblock %}
+</body>

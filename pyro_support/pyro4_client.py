@@ -1,9 +1,13 @@
 from __future__ import print_function
 import time
+import logging
 
 import Pyro4
 
-from support.logs import logging_config
+__all__ = ['AutoReconnectingProxy']
+
+module_logger = logging.getLogger(__name__)
+
 
 class AutoReconnectingProxy(Pyro4.core.Proxy):
     """
@@ -25,36 +29,27 @@ class AutoReconnectingProxy(Pyro4.core.Proxy):
         # the original method (it will reconnect automatically).
         if self._pyroConnection:
             try:
-                # print("  <proxy: ping>")
                 Pyro4.core.message.Message.ping(self._pyroConnection, hmac_key=None)    # utility method on the Message class
-                # print("  <proxy: ping reply (still connected)>")
             except (Pyro4.core.errors.ConnectionClosedError, Pyro4.core.errors.CommunicationError):
-                # print("  <proxy: Connection lost. REBINDING...>")
                 self._pyroReconnect()
-                # print("  <proxy: Connection restored, continue with actual method call...>")
         return super(AutoReconnectingProxy, self)._pyroInvoke(*args, **kwargs)
-
 
 class Pyro4Client(object):
     """
     A simple wrapper around Pyro4.Proxy.
     This is meant to be subclassed. Client side methods are meant to be put here.
     """
-
-    def __init__(self, tunnel, proxy_name, use_autoconnect=False, **kwargs):
+    def __init__(self, tunnel, proxy_name, use_autoconnect=False):
         """
         Intialize a connection the Pyro server.
         Args:
 
         """
-        self.logger = logging_config(**kwargs)
+        self.logger = logging.getLogger(module_logger.name + "." + proxy_name)
         self.proxy_name = proxy_name
         self.tunnel = tunnel
         self.server = self.tunnel.get_pyro_object(self.proxy_name, use_autoconnect=use_autoconnect)
         self.connected = True
-        # self.logger.debug("Starting up the connection checker")
-        # self.connection_checker = ConnectionChecker(self, 2)
-        # self.connection_checker.start()
 
     def __getattr__(self, attr):
         """
@@ -75,5 +70,3 @@ class Pyro4Client(object):
             self.server = self.tunnel.get_pyro_object(self.proxy_name)
             self.logger.info("New server: {}".format(self.server))
         self.logger.debug("Took {:.2f} seconds to check connection.".format(time.time() - t0))
-
-

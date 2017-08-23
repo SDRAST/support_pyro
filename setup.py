@@ -6,7 +6,7 @@ def read(fname):
 
 setup(
     name = "pyro_support",
-    version = "1.0.0",
+    version = "1.1.0",
     author = "TAMS team",
     author_email = "dean.shaff@gmail.com",
     description = ("Server and client extensions for pyro4tunneling"),

@@ -181,6 +181,10 @@ class Pyro4Server(object):
             threaded (bool): Whether or not to run this independently or inside another program. (False)
             reverse (bool): Whether or not to create reverse tunnel, so we can access remotely registered
                 object locally.
+        Returns:
+            dict: "daemon" (Pyro4.Daemon): The server's daemon
+                  "thread" (threading.Thread or None): If threaded, a instance of threading.Thread
+                    running the daemon's requestLoop. If not, None.
         """
         self.tunnel = Pyro4Tunnel(remote_server_name=remote_server_name,
                                     remote_username=remote_username,
@@ -197,14 +201,19 @@ class Pyro4Server(object):
         self.logger.debug("Server uri is {}".format(self.server_uri))
         self.tunnel.ns.register(self._name, self.server_uri)
         self.logger.info("{} available".format(self._name))
-        if not threaded:
-            signal.signal(signal.SIGINT, self.handler)
-        else:
-            pass
         with self.lock:
             self._running = True
-        self.logger.debug("Starting request loop")
-        self.daemon.requestLoop(self.running)
+
+        if not threaded:
+            signal.signal(signal.SIGINT, self.handler)
+            self.logger.debug("Starting request loop")
+            self.daemon.requestLoop(self.running)
+            return {"daemon":self.daemon, "thread":None}
+        else:
+            t = threading.Thread(target=self.daemon.requestLoop, args=(self.running,))
+            t.daemon = True
+            t.start()
+            return {"daemon":self.daemon, "thread":t}
 
     def close(self):
         """
@@ -343,6 +352,10 @@ class Pyro4Server(object):
                                 kwargs['socket_info'] = {'app':app, 'socketio':socketio}
                                 g = gevent.Greenlet.spawn(method, *args, **kwargs)
                                 status = "gevent.Greenlet started"
+                                # t = threading.Thread(target=method, args=args, kwargs=kwargs)
+                                # t.daemon = True
+                                # t.start()
+                                # status = "threading.Thread started"
                                 result = None
                             else:
                                 result = method(*args, **kwargs)

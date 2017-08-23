@@ -1,10 +1,11 @@
 ## pyro-support
+### Version 1.1.0
 
 Pyro4 server and client.
 
 ### Dependencies
 
-- pyro4tunneling>=1.1.1.2
+- pyro4tunneling>=1.2.0
 - Pyro4
 
 ### Usage

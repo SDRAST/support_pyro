@@ -57,7 +57,7 @@ class Pyro4Server(object):
     Attributes with a proceding underscore "_" are meant to be properties,
     accessible to any client.
     """
-    def __init__(self, name="Pyro4Server", simulated=False, logfile=None):
+    def __init__(self, name="Pyro4Server", simulated=False, logfile=None, logger=None):
         """
         Keyword Args:
             name (str): The name of the Pyro server.
@@ -67,7 +67,10 @@ class Pyro4Server(object):
         self._name = name
         self._simulated = simulated
         self._logfile = logfile
-        self.logger = logging.getLogger(module_logger.name+"."+name)
+        if not logger:
+            self.logger = logging.getLogger(module_logger.name+"."+name)
+        else:
+            self.logger = logger
         self.serverlog = self.logger # For compatibility
         self._local = None
         self._running = False

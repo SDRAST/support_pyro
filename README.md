@@ -1,5 +1,5 @@
 ## pyro-support
-### Version 1.1.0
+### Version 1.3.0a
 
 Pyro4 server and client.
 
@@ -61,3 +61,11 @@ the script will prompt you, asking if you want to continue. You'll also probably
 have to use `sudo`.
 
 To uninstall, run `install.sh -u`
+
+### Testing
+
+In the top level directory, type the following:
+
+```bash
+/path/to/pyro-support$ python -m unittest discover -s tests -t .
+```

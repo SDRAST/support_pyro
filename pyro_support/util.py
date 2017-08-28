@@ -152,7 +152,6 @@ def async_method(func):
         if "cb_handler" not in this.cb_info:
             this.cb_info["cb_handler"] = cur_handler
         async_cb = AsyncCallback(cb_info=this.cb_info, socket_info=this.socket_info, func_name=name)
-        print(async_cb)
         this.cb = async_cb.cb
         this.cb_updates = async_cb.cb_updates
         this.cb_handler = async_cb.cb_handler
@@ -322,7 +321,6 @@ class PausableThread(threading.Thread):
     def running(self):
         return self._running_event.isSet()
 
-
 class PausableThreadCallback(threading.Thread):
     """
 	A thread that runs the same callback over an over again, with some
@@ -356,29 +354,29 @@ class PausableThreadCallback(threading.Thread):
                 self.callback(*self.args)
                 self._running.clear()
 
-    def stop(self):
+    def stop_thread(self):
 
-        self._stop.set()
+        self._stop_event.set()
 
-    def pause(self):
+    def pause_thread(self):
 
-        self._pause.set()
+        self._pause_event.set()
 
-    def unpause(self):
+    def unpause_thread(self):
 
-        self._pause.clear()
+        self._pause_event.clear()
 
     def stopped(self):
 
-        return self._stop.isSet()
+        return self._stop_event.isSet()
 
     def paused(self):
 
-        return self._pause.isSet()
+        return self._pause_event.isSet()
 
     def running(self):
 
-        return self._running.isSet()
+        return self._running_event.isSet()
 
 
 if __name__ == '__main__':

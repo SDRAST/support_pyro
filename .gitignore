@@ -3,6 +3,7 @@
 *.log
 *.png
 *.hdf5
+*.h5
 .idea/
 build/
 dist/

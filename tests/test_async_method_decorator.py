@@ -23,8 +23,10 @@ class TestAsyncMethodDecorator(unittest.TestCase):
         if not self.__isSetup__:
             self.__isSetup__ = True
             self.port = Pyro4.socketutil.findProbablyUnusedPort()
-            self.ns_thread = threading.Thread(target=Pyro4.naming.startNSloop,
-                                            kwargs={"port":self.port})
+            ns_details = Pyro4.naming.startNS(port=self.port)
+            self.ns_thread = threading.Thread(target=ns_details[1].requestLoop)
+            # self.ns_thread = threading.Thread(target=Pyro4.naming.startNSloop,
+            #                                 kwargs={"port":self.port})
             self.ns_thread.daemon = True
             self.ns_thread.start()
 

@@ -350,12 +350,12 @@ class Pyro4Server(object):
                         try:
                             if async:
                                 kwargs['socket_info'] = {'app':app, 'socketio':socketio}
-                                g = gevent.Greenlet.spawn(method, *args, **kwargs)
-                                status = "gevent.Greenlet started"
-                                # t = threading.Thread(target=method, args=args, kwargs=kwargs)
-                                # t.daemon = True
-                                # t.start()
-                                # status = "threading.Thread started"
+                                # g = gevent.Greenlet.spawn(method, *args, **kwargs)
+                                # status = "gevent.Greenlet started"
+                                t = threading.Thread(target=method, args=args, kwargs=kwargs)
+                                t.daemon = True
+                                t.start()
+                                status = "threading.Thread started"
                                 result = None
                             else:
                                 result = method(*args, **kwargs)

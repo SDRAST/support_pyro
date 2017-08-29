@@ -19,3 +19,11 @@
 - Attempted to add backward compatibility with older versions of Pyro4. This
 will work with the server in Pyro mode. If one attempts to use an older version of
 Pyro4 with the `flaskify` and `flaskify_io` methods, I don't know what will happen.
+
+### Version 1.3
+
+- Added publishing server and a publisher thread. This interface is useful for
+backend servers that need to use the publisher/subscriber model.
+- Added `AsyncCallback` class that represents as a callback, whether it be Pyro4,
+a Python callback, or a flask_socketio callback.
+- small bug fixes. 

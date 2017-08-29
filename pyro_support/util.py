@@ -29,19 +29,14 @@ class AsyncCallback(object):
         else:
             dummy = lambda *args, **kwargs: None
             self.cb_handler = cb_info.get('cb_handler', None)
-            # print("AsyncCallback: {}".format(self.cb_handler))
             for key in ["cb", "cb_updates"]:
                 cb = cb_info.get(key, None)
                 if not cb:
-                    # print("AsyncCallback: {} is None".format(key))
                     setattr(self, key, dummy)
                 if callable(cb):
-                    # print("AsyncCallback: {} is callable".format(key))
                     setattr(self, key, cb)
                 elif isinstance(cb, six.string_types):
-                    # print("AsyncCallback: {} is str".format(key))
                     if socket_info:
-                        # print("AsyncCallback: {} there is socket info".format(key))
                         app = socket_info['app']
                         socketio = socket_info['socketio']
                         def f(cb_name):
@@ -54,6 +49,7 @@ class AsyncCallback(object):
                         if self.cb_handler:
                             try:
                                 setattr(self, key, getattr(self.cb_handler, cb))
+                                setattr(self, key+"_name", cb)
                             except AttributeError as err:
                                 setattr(self, key, dummy)
                         else:
@@ -132,7 +128,7 @@ def async_method(func):
             this = self
         else:
             this = wrapper
-
+        module_logger.debug("{}: {}".format(name, kwargs))
         if 'cb_info' in kwargs:
             cb_info = kwargs['cb_info']
             kwargs.pop('cb_info')
@@ -147,14 +143,21 @@ def async_method(func):
 
         this.cb_info = cb_info
         this.socket_info = socket_info
-
+        module_logger.debug("{}: {}".format(name, this.cb_info))
+        module_logger.debug("{}: {}".format(name, this.socket_info))
         cur_handler = getattr(self, "cb_handler", None)
-        if "cb_handler" not in this.cb_info:
-            this.cb_info["cb_handler"] = cur_handler
+        if this.cb_info:
+            if "cb_handler" not in this.cb_info:
+                this.cb_info["cb_handler"] = cur_handler
         async_cb = AsyncCallback(cb_info=this.cb_info, socket_info=this.socket_info, func_name=name)
         this.cb = async_cb.cb
         this.cb_updates = async_cb.cb_updates
         this.cb_handler = async_cb.cb_handler
+        try:
+            this.cb_name = async_cb.cb_name
+            this.cb_updates_name = async_cb.cb_updates_name
+        except AttributeError:
+            pass
 
         # this.cb_info = cb_info
         # this.socket_info = socket_info

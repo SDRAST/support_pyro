@@ -13,7 +13,6 @@ from pyro_support import Pyro4Server, config
 
 class TestAsyncCallback(unittest.TestCase):
 
-
     def test_function_str_name_cb(self):
         """
         Make sure that if we pass the name of a function with no cb_handler,

@@ -26,4 +26,4 @@ Pyro4 with the `flaskify` and `flaskify_io` methods, I don't know what will happ
 backend servers that need to use the publisher/subscriber model.
 - Added `AsyncCallback` class that represents as a callback, whether it be Pyro4,
 a Python callback, or a flask_socketio callback.
-- small bug fixes. 
+- small bug fixes.

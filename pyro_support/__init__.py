@@ -1,5 +1,4 @@
 __version__ = "1.3.0a"
-from flask_socketio import send, emit
 
 from .pyro4_server import *
 from .pyro4_publisher import *

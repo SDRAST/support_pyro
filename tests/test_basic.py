@@ -8,6 +8,7 @@ from pyro_support import Pyro4Server, config, Pyro4ServerError
 class TestBasic(unittest.TestCase):
 
     def test_init_server(self):
+
         name = "TestServer"
         server = Pyro4Server(name=name)
         self.assertTrue(server.name == name)
@@ -22,4 +23,5 @@ class TestBasic(unittest.TestCase):
 
 if __name__ == "__main__":
     logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+    logging.info("Running pyro4-support basic test")
     unittest.main()

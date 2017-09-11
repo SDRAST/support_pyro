@@ -195,8 +195,8 @@ class Pyro4Server(object):
         self.threaded = threaded
         self._local = self.tunnel.local
 
-        self.daemon = Pyro4.Daemon(port=obj_port)
-        self.tunnel.register_remote_daemon(self.daemon, reverse=reverse) # this sets up the tunnel
+        self.daemon = Pyro4.Daemon(port=obj_port, host=ns_host)
+        self.tunnel.register_remote_daemon(self.daemon, reverse=reverse)
         self.server_uri = self.daemon.register(self,objectId=obj_id)
         self.logger.debug("Server uri is {}".format(self.server_uri))
         self.tunnel.ns.register(self._name, self.server_uri)

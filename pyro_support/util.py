@@ -381,6 +381,33 @@ class PausableThreadCallback(threading.Thread):
 
         return self._running_event.isSet()
 
+def blocking(func):
+    """
+    This decorator will make it such that the server can do
+    nothing else while func is being called.
+    """
+    def wrapper(self, *args, **kwargs):
+        lock = self.lock
+        with lock:
+            res = func(self, *args, **kwargs)
+        return res
+    return wrapper
+
+
+def non_blocking(func):
+    """
+    Proceed as normal unless a functuon with the blocking
+    decorator has already been called
+    """
+    def wrapper(self, *args, **kwargs):
+        lock = self.lock
+        while lock.locked():
+            time.sleep(0.01)
+        time.sleep(0.01)
+        res = func(self, *args, **kwargs)
+        return res
+
+    return wrapper
 
 if __name__ == '__main__':
     def callback():

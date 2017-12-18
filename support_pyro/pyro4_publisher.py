@@ -1,14 +1,53 @@
+from __future__ import print_function
 import time
+import json
 
-from .pyro4_server import Pyro4Server
+import zmq
+import serpent
+import Pyro4
+
+from .pyro4_server import Pyro4Server, Pyro4ServerError
 from .util import PausableThread, iterative_run, AsyncCallback
 
-class PublisherThread(PausableThread):
+__all__ = ["ZmqPublisherThread","Pyro4PublisherThread", "Pyro4PublisherServer"]
+
+class ZmqPublisherThread(PausableThread):
+
+    def __init__(self, update_rate, data_cb,socket,
+                        data_cb_args=None,
+                        data_cb_kwargs=None,
+                        serializer="serpent",
+                        **kwargs):
+
+        PausableThread.__init__(self, **kwargs)
+        self.update_rate = update_rate
+        self.data_cb = data_cb
+        self.socket = socket
+
+        if not data_cb_args: data_cb_args = ()
+        if not data_cb_kwargs: data_cb_kwargs = {}
+        self.data_cb_args = data_cb_args
+        self.data_cb_kwargs = data_cb_kwargs
+
+        if serializer == "serpent":
+            self.serializer = serpent
+        elif serializer == "json":
+            self.serializer = json
+        else:
+            raise Pyro4ServerError("Don't recognize serializer {}".format(serializer))
+
+    @iterative_run
+    def run(self):
+        data = self.data_cb(*self.data_cb_args, **self.data_cb_kwargs)
+        # self.logger.debug("Sending data on socket")
+        self.socket.send(self.serializer.dumps(data))
+        time.sleep(self.update_rate)
+
+class Pyro4PublisherThread(PausableThread):
     """
     A Pausable Thread that will publish data to any registered callbacks,
     given some data_cb callback function.
     The run function calls the data_cb function, and then calls all registered callbacks.
-    To improve performance,
     """
     def __init__(self,
                 update_rate,
@@ -23,8 +62,10 @@ class PublisherThread(PausableThread):
         self.update_rate = update_rate
         self.data_cb = data_cb
 
-        if not data_cb_args: self.data_cb_args = ()
-        if not data_cb_kwargs: self.data_cb_kwargs = {}
+        if not data_cb_args: data_cb_args = ()
+        if not data_cb_kwargs: data_cb_kwargs = {}
+        self.data_cb_args = data_cb_args
+        self.data_cb_kwargs = data_cb_kwargs
 
         if cb_info:
             if not isinstance(cb_info, list):
@@ -71,20 +112,117 @@ class PublisherThread(PausableThread):
 class Pyro4PublisherServer(Pyro4Server):
     """
     """
+    backend = "zmq"
     def __init__(self, **kwargs):
         """
         """
         Pyro4Server.__init__(self, **kwargs)
         self.publisher_thread = None
+        self.publisher_socket = None
+        self.publisher_address = None
 
-    def start_publishing(self):
-        raise NotImplementedError("start_publishing method not implemented.")
+    def create_zmq_publisher(self,host=None, port=None):
+        """
+        Create a zmq socket of the publisher type.
+        This method sets the publisher_address and publisher_socket
+        attributes
+        Keyword Arguments:
+            host (str):
+            port (str):
+        """
+        if host is None: host = "*"
+        if port is None: port = Pyro4.socketutil.findProbablyUnusedPort()
+        context = zmq.Context()
+        socket = context.socket(zmq.PUB)
+        address = "tcp://{}:{}".format(host, port)
+        socket.bind("tcp://*:{}".format(port))
+
+        self.publisher_address = address
+        self.publisher_socket = socket
+
+        return socket, address
+
+    def get_publisher_data(self):
+        raise NotImplementedError("Subclass needs to implement this method")
+
+    def start_publishing(self,update_rate,
+                        create_zmq_publisher_kwargs=None,
+                        pyro4_publisher_thread_kwargs=None,
+                        zmq_publisher_thread_kwargs =None):
+
+        if create_zmq_publisher_kwargs is None: create_zmq_publisher_kwargs = {}
+        if pyro4_publisher_thread_kwargs is None: pyro4_publisher_thread_kwargs = {}
+        if zmq_publisher_thread_kwargs is None: zmq_publisher_thread_kwargs = {}
+        self.logger.debug("Starting Publishing")
+        if self.publisher_thread is not None:
+            self.logger.info(("Cannot start publishing: Publishing already started. "
+                              "If you're attempting to restart publishing, then first "
+                              "call `stop_publishing` method, and then `start_publishing`"))
+            return
+
+        if self.backend == "pyro4":
+
+            self.publisher_thread = Pyro4PublisherThread(update_rate, self.get_publisher_data,
+                                                    **pyro4_publisher_thread_kwargs)
+
+
+        elif self.backend == "zmq":
+
+            if self.publisher_socket is None and self.publisher_address is None:
+                self.create_zmq_publisher(**create_zmq_publisher_kwargs)
+
+            self.publisher_thread = ZmqPublisherThread(update_rate,
+                                                        self.get_publisher_data,
+                                                        self.publisher_socket,
+                                                        **zmq_publisher_thread_kwargs)
+        self.publisher_thread.start()
+
+
+    def unpause_publishing(self):
+        """
+        Unpause publishing thread
+        """
+        self.logger.debug("Unpausing publishing")
+        if self.publisher_thread is None:
+            self.logger.debug("No publisher thread to unpause")
+        else:
+            self.publisher_thread.unpause_thread()
 
     def pause_publishing(self):
-        raise NotImplementedError("pause_publishing method not implemented.")
+        """
+        Pause publishing thread
+        """
+        self.logger.debug("Pausing publishing")
+        if self.publisher_thread is None:
+            self.logger.debug("No publisher thread to pause")
+        else:
+            self.publisher_thread.pause_thread()
 
     def stop_publishing(self):
-        raise NotImplementedError("stop_publishing method not implemented.")
+        """
+        Stop publishing thread
+        """
+        self.logger.debug("Stopping publishing")
+        if self.publisher_thread is None:
+            self.logger.debug("No publisher thread to pause")
+        else:
+            self.publisher_thread.pause_thread()
+            self.publisher_thread.stop_thread()
+            self.publisher_thread = None
 
-    def register_callback(self, cb_info):
-        raise NotImplementedError("register_callback method not implemented.")
+    def register_callback(self, cb_info, socket_info=None):
+        """
+        Register some callback with the publisher thread, if using the Pyro4
+        publishing backend.
+        Args:
+            cb_info (dict): Callback info dictionary.
+        Keyword Args:
+            socket_info (dict): Optional socket info argument.
+        """
+        if self.backend == "pyro4":
+            if self.publisher_thread is not None:
+                self.publisher_thread.register_callback(cb_info, socket_info=socket_info)
+
+        elif self.backend == "zmq":
+            self.logger.debug(("register_callback not implemented for zmq backend "
+                                "as it is unaware of client side callbacks."))

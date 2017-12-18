@@ -6,6 +6,7 @@ import zmq
 import serpent
 import Pyro4
 
+from .configuration import config
 from .pyro4_server import Pyro4Server, Pyro4ServerError
 from .util import PausableThread, iterative_run, AsyncCallback
 
@@ -13,7 +14,8 @@ __all__ = ["ZmqPublisherThread","Pyro4PublisherThread", "Pyro4PublisherServer"]
 
 class ZmqPublisherThread(PausableThread):
 
-    def __init__(self, update_rate, data_cb,socket,
+    def __init__(self, update_rate, data_cb,context,address,
+                        topic="",
                         data_cb_args=None,
                         data_cb_kwargs=None,
                         serializer="serpent",
@@ -22,8 +24,9 @@ class ZmqPublisherThread(PausableThread):
         PausableThread.__init__(self, **kwargs)
         self.update_rate = update_rate
         self.data_cb = data_cb
-        self.socket = socket
-
+        self.socket = context.socket(zmq.PUB)
+        self.socket.bind(address)
+        self.topic = topic
         if not data_cb_args: data_cb_args = ()
         if not data_cb_kwargs: data_cb_kwargs = {}
         self.data_cb_args = data_cb_args
@@ -39,9 +42,13 @@ class ZmqPublisherThread(PausableThread):
     @iterative_run
     def run(self):
         data = self.data_cb(*self.data_cb_args, **self.data_cb_kwargs)
-        # self.logger.debug("Sending data on socket")
-        self.socket.send(self.serializer.dumps(data))
+        # self.logger.debug("Sending {} on socket".format(self.serializer.dumps(data)))
+        self.socket.send(self.topic+self.serializer.dumps(data))
         time.sleep(self.update_rate)
+
+    def stop_thread(self):
+        super(ZmqPublisherThread, self).stop_thread()
+        self.socket.close()
 
 class Pyro4PublisherThread(PausableThread):
     """
@@ -118,10 +125,10 @@ class Pyro4PublisherServer(Pyro4Server):
         """
         Pyro4Server.__init__(self, **kwargs)
         self.publisher_thread = None
-        self.publisher_socket = None
-        self.publisher_address = None
+        self.publisher_context = None
+        self._publisher_address = None
 
-    def create_zmq_publisher(self,host=None, port=None):
+    def create_zmq_context(self,host=None, port=None):
         """
         Create a zmq socket of the publisher type.
         This method sets the publisher_address and publisher_socket
@@ -132,25 +139,29 @@ class Pyro4PublisherServer(Pyro4Server):
         """
         if host is None: host = "*"
         if port is None: port = Pyro4.socketutil.findProbablyUnusedPort()
-        context = zmq.Context()
-        socket = context.socket(zmq.PUB)
+        context = zmq.Context.instance()
         address = "tcp://{}:{}".format(host, port)
-        socket.bind("tcp://*:{}".format(port))
 
-        self.publisher_address = address
-        self.publisher_socket = socket
+        self._publisher_address = address
+        self.publisher_context = context
 
-        return socket, address
+        return context, address
+
+    @config.expose
+    @property
+    def publisher_address(self):
+        return self._publisher_address
 
     def get_publisher_data(self):
         raise NotImplementedError("Subclass needs to implement this method")
 
+    @config.expose
     def start_publishing(self,update_rate,
-                        create_zmq_publisher_kwargs=None,
+                        create_zmq_context_kwargs=None,
                         pyro4_publisher_thread_kwargs=None,
-                        zmq_publisher_thread_kwargs =None):
+                        zmq_publisher_thread_kwargs=None):
 
-        if create_zmq_publisher_kwargs is None: create_zmq_publisher_kwargs = {}
+        if create_zmq_context_kwargs is None: create_zmq_context_kwargs = {}
         if pyro4_publisher_thread_kwargs is None: pyro4_publisher_thread_kwargs = {}
         if zmq_publisher_thread_kwargs is None: zmq_publisher_thread_kwargs = {}
         self.logger.debug("Starting Publishing")
@@ -167,17 +178,24 @@ class Pyro4PublisherServer(Pyro4Server):
 
 
         elif self.backend == "zmq":
+            try:
+                if self.publisher_context is None and self._publisher_address is None:
+                    self.create_zmq_context(**create_zmq_context_kwargs)
 
-            if self.publisher_socket is None and self.publisher_address is None:
-                self.create_zmq_publisher(**create_zmq_publisher_kwargs)
+                self.publisher_thread = ZmqPublisherThread(update_rate,
+                                                            self.get_publisher_data,
+                                                            self.publisher_context,
+                                                            self._publisher_address,
+                                                            **zmq_publisher_thread_kwargs)
+            except Exception as err:
+                self.logger.error(err, exc_info=True)
 
-            self.publisher_thread = ZmqPublisherThread(update_rate,
-                                                        self.get_publisher_data,
-                                                        self.publisher_socket,
-                                                        **zmq_publisher_thread_kwargs)
-        self.publisher_thread.start()
+        try:
+            self.publisher_thread.start()
+        except Exception as err:
+            self.logger.error(err, exc_info=True)
 
-
+    @config.expose
     def unpause_publishing(self):
         """
         Unpause publishing thread
@@ -188,6 +206,7 @@ class Pyro4PublisherServer(Pyro4Server):
         else:
             self.publisher_thread.unpause_thread()
 
+    @config.expose
     def pause_publishing(self):
         """
         Pause publishing thread
@@ -198,6 +217,7 @@ class Pyro4PublisherServer(Pyro4Server):
         else:
             self.publisher_thread.pause_thread()
 
+    @config.expose
     def stop_publishing(self):
         """
         Stop publishing thread
@@ -210,6 +230,7 @@ class Pyro4PublisherServer(Pyro4Server):
             self.publisher_thread.stop_thread()
             self.publisher_thread = None
 
+    @config.expose
     def register_callback(self, cb_info, socket_info=None):
         """
         Register some callback with the publisher thread, if using the Pyro4

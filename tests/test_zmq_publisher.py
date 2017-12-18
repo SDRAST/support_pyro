@@ -6,14 +6,14 @@ import threading
 import random
 
 import pyro4tunneling
-
 import Pyro4
 import Pyro4.naming
 import Pyro4.socketutil
 
 # from pyro_support.pyro4_publisher import PublisherThread
+from pyro_support import Pyro4Client
 
-from . import BasicTestZmqPublisher, BasicTestClient
+from . import BasicTestZmqPublisher, BasicTestZmqSubscriber, BasicTestClient
 
 class TestZmqPublisherBackend(unittest.TestCase):
 
@@ -41,19 +41,47 @@ class TestZmqPublisherBackend(unittest.TestCase):
             pass
 
     def test_start_pause_stop(self):
-
-        logger = logging.getLogger("TestZmqPublisherBackend.test_basic_publisher")
+        pause_time = 0.1
+        logger = logging.getLogger("TestZmqPublisherBackend.test_start_pause_stop")
         server = self.__class__.server
         # client = BasicTestClient(self.__class__.port, "BasicTestZmqPublisher", self, logger)
-        server.start_publishing(0.1)
-        time.sleep(1.0)
+        server.start_publishing(1.0)
+        logger.debug(server.publisher_address)
+        time.sleep(pause_time)
         server.pause_publishing()
-        time.sleep(1.0)
+        time.sleep(pause_time)
         server.unpause_publishing()
-        time.sleep(1.0)
+        time.sleep(pause_time)
         server.stop_publishing()
 
+    # @unittest.skip("")
+    def test_start_pause_stop_from_client(self):
+        pause_time = 0.1
+        logger = logging.getLogger("TestZmqPublisherBackend.test_start_pause_stop_from_client")
+        # server = self.__class__.server
+        tunnel = pyro4tunneling.Pyro4Tunnel(ns_host="localhost",ns_port=self.__class__.port,local=True)
+        client = Pyro4Client(tunnel, "BasicTestZmqPublisher", logger=logger)
+        self.assertTrue(isinstance(client.server, Pyro4.Proxy))
+        client.start_publishing(1.0)
+        time.sleep(pause_time)
+        client.pause_publishing()
+        time.sleep(pause_time)
+        client.unpause_publishing()
+        time.sleep(pause_time)
+        client.stop_publishing()
 
+    # @unittest.skip("")
+    def test_subscriber(self):
+        pause_time = 1.0
+        logger = logging.getLogger("TestZmqPublisherBackend.test_start_pause_stop_from_client")
+        # client = BasicTestClient(self.__class__.port, "BasicTestZmqPublisher", self, logger)
+        tunnel = pyro4tunneling.Pyro4Tunnel(ns_host="localhost",ns_port=self.__class__.port,local=True)
+        subscriber = BasicTestZmqSubscriber(tunnel,"BasicTestZmqPublisher",logger=logger)
+        subscriber.start_publishing(0.1)
+        subscriber.start_subscribing()
+        time.sleep(pause_time)
+        subscriber.stop_subscribing()
+        subscriber.stop_publishing()
 
     @unittest.skip("")
     def test_multiple_subscribers(self):

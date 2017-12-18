@@ -2,12 +2,33 @@ import threading
 
 import Pyro4
 
-from pyro_support import Pyro4Server, config, async_method
+from pyro_support import Pyro4Server, config, async_method, Pyro4PublisherServer
+
+class BasicTestZmqPublisher(Pyro4PublisherServer):
+
+    def __init__(self, test_case):
+        Pyro4PublisherServer.__init__(self, name="BasicTestZmqPublisher")
+        self.test_case = test_case
+
+    def get_publisher_data(self):
+
+        return {
+            self.square.__name__: self.square(2),
+            self.cube.__name__: self.cube(2)
+        }
+
+    def square(self, x):
+        return x**2
+
+    def cube(self, x):
+        return x**3
+
+
 
 @config.expose
 class BasicTestServer(Pyro4Server):
     def __init__(self, test_case):
-        Pyro4Server.__init__(self, name="BasicServer")
+        Pyro4Server.__init__(self, name="BasicTestServer")
         self.test_case = test_case
 
     def setHandler(self,proxy):

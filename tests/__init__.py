@@ -2,7 +2,12 @@ import threading
 
 import Pyro4
 
-from pyro_support import Pyro4Server, config, async_method, Pyro4PublisherServer
+from pyro_support import Pyro4Server, config, async_method, Pyro4PublisherServer, Pyro4Subscriber
+
+class BasicTestZmqSubscriber(Pyro4Subscriber):
+
+    def consume(self, data):
+        self.logger.debug(data)
 
 class BasicTestZmqPublisher(Pyro4PublisherServer):
 

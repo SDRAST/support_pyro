@@ -4,7 +4,7 @@ import logging
 
 import Pyro4
 
-__all__ = ['AutoReconnectingProxy']
+__all__ = ['AutoReconnectingProxy', 'Pyro4Client']
 
 module_logger = logging.getLogger(__name__)
 
@@ -39,16 +39,19 @@ class Pyro4Client(object):
     A simple wrapper around Pyro4.Proxy.
     This is meant to be subclassed. Client side methods are meant to be put here.
     """
-    def __init__(self, tunnel, proxy_name, use_autoconnect=False):
+    def __init__(self, tunnel, proxy_name, use_autoconnect=False, logger=None):
         """
         Intialize a connection the Pyro server.
         Args:
 
         """
-        self.logger = logging.getLogger(module_logger.name + "." + proxy_name)
+        if logger is None:
+            self.logger = logging.getLogger(module_logger.name + "." + proxy_name)
+        else:
+            self.logger = logger
         self.proxy_name = proxy_name
         self.tunnel = tunnel
-        self.server = self.tunnel.get_pyro_object(self.proxy_name, use_autoconnect=use_autoconnect)
+        self.server = self.tunnel.get_remote_object(self.proxy_name, auto=use_autoconnect)
         self.connected = True
 
     def __getattr__(self, attr):

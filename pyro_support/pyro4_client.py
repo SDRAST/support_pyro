@@ -51,7 +51,7 @@ class Pyro4Client(object):
             self.logger = logger
         self.proxy_name = proxy_name
         self.tunnel = tunnel
-        self.server = self.tunnel.get_pyro_object(self.proxy_name, use_autoconnect=use_autoconnect)
+        self.server = self.tunnel.get_remote_object(self.proxy_name, auto=use_autoconnect)
         self.connected = True
 
     def __getattr__(self, attr):

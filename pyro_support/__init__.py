@@ -1,7 +1,7 @@
-__version__ = "1.3.0a"
+__version__ = "1.3.1"
 
 from .pyro4_server import *
 from .pyro4_publisher import *
 from .pyro4_client import *
 from .configuration import config
-from .util import async_method, blocking, non_blocking
+from .util import *

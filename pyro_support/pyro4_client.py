@@ -4,7 +4,7 @@ import logging
 
 import Pyro4
 
-__all__ = ['AutoReconnectingProxy']
+__all__ = ['AutoReconnectingProxy', 'Pyro4Client']
 
 module_logger = logging.getLogger(__name__)
 

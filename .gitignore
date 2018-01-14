@@ -7,5 +7,6 @@
 .idea/
 build/
 dist/
+sandbox/
 pyro_support.egg-info/
 pyro_support/__pycache__/

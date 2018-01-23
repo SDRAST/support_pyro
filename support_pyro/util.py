@@ -2,6 +2,7 @@ import logging
 import threading
 import time
 
+import Pyro4
 import six
 
 __all__ = ["AsyncCallback", "async_method", "iterative_run", "Pause",
@@ -200,7 +201,7 @@ def async_method(func):
 
         return func(self, *args, **kwargs)
     wrapper._async_method = True
-    return wrapper
+    return Pyro4.oneway(wrapper)
 
 
 def iterative_run(run_fn):

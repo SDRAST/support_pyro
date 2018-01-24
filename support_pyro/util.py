@@ -297,12 +297,12 @@ class PausableThread(threading.Thread):
         """
 		"""
         threading.Thread.__init__(self)
-
+        self.daemon = True
         self.name = name
         if not logger:
             self.logger = logging.getLogger("{}.{}".format(module_logger.name, name))
         else:
-            self.logger= logger
+            self.logger = logger
         self._lock = threading.Lock()
         self._pause_event = threading.Event()
         self._stop_event = threading.Event()

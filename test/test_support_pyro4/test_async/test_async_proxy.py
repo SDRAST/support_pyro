@@ -1,4 +1,5 @@
 import sys
+import inspect
 import logging
 import threading
 import unittest
@@ -7,7 +8,7 @@ import Pyro4
 
 from ... import setup_logging
 # module_logger = logging.getLogger()
-setup_logging(logging.getLogger())
+setup_logging(logging.getLogger(), logLevel=logging.INFO)
 
 from support_pyro.support_pyro4.async.async_proxy import AsyncProxy
 from . import test_case_factory, SimpleServer, SimpleAsyncServer
@@ -16,13 +17,21 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
 
     def setUp(self):
         self.logger = logging.getLogger("TestAsyncProxy")
+        self.called = {
+            "callback":False
+        }
         class Client(object):
             test_case = self
+            called = {
+                "callback": False
+            }
             @Pyro4.expose
             def callback(self, res):
+                self.called["callback"] = True
                 self.test_case.assertTrue(res == "hello")
 
         def callback(res):
+            self.called["callback"] = True
             self.assertTrue(res == "hello")
 
         self.callback = callback
@@ -56,18 +65,36 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
         self.assertTrue("Pyro.Daemon" in self.proxy._daemon.objectsById)
         self.assertTrue("localhost" in self.proxy._daemon.locationStr)
 
-    def test_lookup_function(self):
-
+    def test_lookup_function_with_function(self):
         self.proxy.register(self.callback)
-        obj = self.proxy.lookup_function(self.callback.__name__)
-        self.logger.debug(obj)
+        obj, obj_id = self.proxy.lookup_function(self.callback)
         self.assertTrue(obj.__class__.__name__ == self.callback.__name__)
+        self.assertTrue(inspect.ismethod(obj.callback))
+        obj.callback("hello")
+        self.assertTrue(self.called["callback"])
 
+    def test_lookup_function_with_function_name(self):
+        self.proxy.register(self.callback)
+        obj, obj_id = self.proxy.lookup_function(self.callback.__name__)
+        self.assertTrue(obj.__class__.__name__ == self.callback.__name__)
+        self.assertTrue(inspect.ismethod(obj.callback))
+        obj.callback("hello")
+        self.assertTrue(self.called["callback"])
+
+    def test_lookup_function_with_obj(self):
+        client = self.Client()
+        self.proxy.register(client)
+        obj, obj_id = self.proxy.lookup_function(client)
+        self.assertTrue(obj is client)
+    # @unittest.skip("")
     def test_register_function_with_class_method(self):
 
         callback = self.callback
         AsyncProxy.register(callback)
         self.logger.debug(self.proxy._asyncHandlers)
+        obj, obj_id = self.proxy.lookup_function("callback")
+        obj.callback("hello")
+        self.assertTrue(self.called["callback"])
 
     # @unittest.skip("")
     def test_register_obj_with_class_method(self):

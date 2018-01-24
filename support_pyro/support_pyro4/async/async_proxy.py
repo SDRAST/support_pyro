@@ -62,13 +62,13 @@ class AsyncProxy(Pyro4.core.Proxy):
             callback_dict = {}
             if inspect.isfunction(callback):
                 method_name = callback.__name__
-                handler = self.lookup_function(method_name)
+                handler, handler_id = self.lookup_function(method_name)
             elif inspect.ismethod(callback):
                 method_name = callback.__name__
                 handler = method_name.im_self
             elif isinstance(callback, str):
                 method_name = callback
-                handler = self.lookup_function(method_name)
+                handler, handler_id = self.lookup_function(method_name)
             elif isinstance(callback, dict):
                 method_name = callback["callback"]
                 handler = callback["handler"]
@@ -81,18 +81,6 @@ class AsyncProxy(Pyro4.core.Proxy):
                                             vargs, kwargs,
                                             flags=flags,
                                             objectId=objectId)
-    def lookup_function(self, fn_name):
-        """
-        Given some function name, look it up in self._asyncHandlers, and
-        return the object to which it refers.
-        Args:
-            fn_name (str):
-        """
-        for objectId in self._asyncHandlers:
-            obj = self._asyncHandlers[objectId]
-            if obj.__class__.__name__ == fn_name:
-                return obj
-        raise RuntimeError("Couldn't find {} in current async handlers".format(fn_name))
 
     def register_handlers_with_daemon(self):
         for objectId in self._asyncHandlers:
@@ -103,8 +91,6 @@ class AsyncProxy(Pyro4.core.Proxy):
         AsyncProxy.register(AsyncProxy, fn_or_obj)
         self.register_handlers_with_daemon()
 
-
-
     @classmethod
     def register(cls, fn_or_obj):
         """
@@ -114,17 +100,42 @@ class AsyncProxy(Pyro4.core.Proxy):
                 parameter
         Returns:
             None
-        TODO:
-            be able to register entire objects or classes.
         """
         objectId = "obj_" + uuid.uuid4().hex # this is the same signature as Pyro4.core.Daemon
-        module_logger.debug("Creating objectId {} for obj {}".format(objectId, fn_or_obj))
+        module_logger.debug("Creating objectId {}... for obj {}".format(objectId[4:11], fn_or_obj))
         if inspect.isfunction(fn_or_obj):
             handler_class = AsyncProxy.create_handler_class(fn_or_obj)
             handler_obj = handler_class()
+        else:
+            handler_obj = fn_or_obj
+        name = handler_obj.__class__.__name__
+        if cls.lookup_function(name) is None:
             cls._asyncHandlers[objectId] = handler_obj
         else:
-            cls._asyncHandlers[objectId] = fn_or_obj
+            raise RuntimeError("Function or object with name {} already registered".format(name))
+
+    def lookup_function(self, fn_name):
+        return AsyncProxy.lookup_function(AsyncProxy, fn_name)
+
+    @classmethod
+    def lookup_function(cls, fn_or_obj):
+        """
+        Given some function name, look it up in self._asyncHandlers, and
+        return the object to which it refers.
+        Args:
+            fn_name (str):
+        """
+        for objectId in cls._asyncHandlers:
+            obj = cls._asyncHandlers[objectId]
+            if isinstance(fn_or_obj, str):
+                if obj.__class__.__name__ == fn_or_obj:
+                    return obj, objectId
+            elif inspect.isfunction(fn_or_obj):
+                if obj.__class__.__name__ == fn_or_obj.__name__:
+                    return obj, objectId
+            else:
+                if obj.__class__ is fn_or_obj.__class__:
+                    return obj, objectId
 
     @classmethod
     def unregister(cls, fn_or_obj):

@@ -86,7 +86,7 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
         self.proxy.register(client)
         obj, obj_id = self.proxy.lookup_function(client)
         self.assertTrue(obj is client)
-    # @unittest.skip("")
+
     def test_register_function_with_class_method(self):
 
         callback = self.callback
@@ -96,23 +96,30 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
         obj.callback("hello")
         self.assertTrue(self.called["callback"])
 
-    # @unittest.skip("")
     def test_register_obj_with_class_method(self):
 
         client = self.Client()
         AsyncProxy.register(client)
         p = AsyncProxy("PYRO:SimpleAsyncServer@localhost:50000")
+        obj, obj_id = p.lookup_function(client)
+        obj.callback("hello")
+        self.assertTrue(client.called["callback"])
 
-    # @unittest.skip("")
     def test_register_function_with_instance_method(self):
 
         self.proxy.register(self.callback)
+        obj, obj_id = self.proxy.lookup_function("callback")
+        obj.callback("hello")
+        self.assertTrue(self.called["callback"])
 
-    # @unittest.skip("")
     def test_register_obj_with_instance_method(self):
 
         client = self.Client()
         self.proxy.register(client)
+        obj, obj_id = self.proxy.lookup_function(client)
+        obj.callback("hello")
+        self.assertTrue(client.called["callback"])
+
 
 if __name__ == "__main__":
     unittest.main()

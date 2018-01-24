@@ -3,7 +3,7 @@ import unittest
 
 import Pyro4
 
-from src import async
+from support_pyro.support_pyro4.async import async
 
 class SimpleServer(object):
 

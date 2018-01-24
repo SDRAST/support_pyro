@@ -114,11 +114,11 @@ class AsyncProxy(Pyro4.core.Proxy):
             be able to register entire objects or classes.
         """
         if inspect.isfunction(fn_or_obj):
-            objectId = uuid.uuid()
+            objectId = uuid.uuid4()
             handler_class = AsyncProxy.create_handler_class(fn_or_obj)
             cls._asyncHandlers[objectId] = handler_class()
         else:
-            objectId = uuid.uuid()
+            objectId = uuid.uuid4()
             cls._asyncHandlers[objectId] = fn_or_obj
 
     @staticmethod

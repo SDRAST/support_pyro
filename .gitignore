@@ -8,7 +8,5 @@
 build/
 dist/
 sandbox/
-pyro_support.egg-info/
 support_pyro.egg-info/
-pyro_support/__pycache__/
-pyro_support/
+Pyro4/

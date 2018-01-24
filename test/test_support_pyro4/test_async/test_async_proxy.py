@@ -1,9 +1,11 @@
+import sys
+import logging
 import threading
 import unittest
 
 import Pyro4
 
-from src.async_proxy import AsyncProxy
+from support_pyro.support_pyro4.async.async_proxy import AsyncProxy
 from . import test_case_factory, SimpleServer, SimpleAsyncServer
 
 class TestAsyncProxy(test_case_factory(SimpleServer)):
@@ -61,4 +63,5 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
         p._daemon.shutdown()
 
 if __name__ == "__main__":
+    logging.basicConfig(stream=sys.stdout,level=logging.DEBUG)
     unittest.main()

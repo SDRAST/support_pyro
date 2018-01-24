@@ -2,7 +2,7 @@ import threading
 
 import Pyro4
 
-from pyro_support import Pyro4Server, config, async_method, Pyro4PublisherServer, Pyro4Subscriber
+from support_pyro.support_pyro4 import Pyro4Server, config, async_method, Pyro4PublisherServer, Pyro4Subscriber
 
 class BasicTestZmqSubscriber(Pyro4Subscriber):
 

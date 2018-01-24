@@ -19,7 +19,7 @@ uri = "PYRO:Server@localhost:50001"
 
 client = AsyncProxy(uri)
 
-client.square(2,callback=square_callback)
+client.square(2, callback=square_callback)
 client.repeat("hello", 10, callback=repeat_callback)
 
 # Because we're dealing with asynchronous responses, we need

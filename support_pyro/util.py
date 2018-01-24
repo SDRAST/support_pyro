@@ -5,7 +5,7 @@ import time
 import Pyro4
 import six
 
-__all__ = ["AsyncCallback", "async_method", "iterative_run", "Pause",
+__all__ = ["AsyncCallback", "async_method", "async", "iterative_run", "Pause",
         "PausableThread", "PausableThreadCallback", "blocking", "non_blocking"]
 
 module_logger = logging.getLogger(__name__)
@@ -203,6 +203,7 @@ def async_method(func):
     wrapper._async_method = True
     return Pyro4.oneway(wrapper)
 
+async = async_method
 
 def iterative_run(run_fn):
     """
@@ -413,29 +414,3 @@ def non_blocking(func):
         return res
 
     return wrapper
-
-if __name__ == '__main__':
-    def callback():
-        print("Called!")
-        time.sleep(5.0)
-
-
-    t = PausableThreadCallback(callback, name='test')
-    t.daemon = True
-    # t.pause()
-    # t.start()
-    # t.unpause()
-    # print("Starting thread.")
-    # t.start()
-    # time.sleep(0.1)
-    # print("Pausing thread.")
-    # t.pause()
-    # for i in xrange(7):
-    # 	print("Is the callback still running? {}".format(t.running()))
-    # 	time.sleep(1.0)
-    # print("Unpausing thread.")
-    # t.unpause()
-    # time.sleep(5.0)
-    # print("Stopping thread.")
-    # t.stop()
-    # t.join()

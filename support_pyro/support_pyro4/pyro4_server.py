@@ -127,7 +127,7 @@ class Pyro4Server(object):
                             ns_host='localhost',
                             ns_port=9090,
                             obj_port=0,
-                            obj_id=None,
+                            objectId=None,
                             local=True,
                             local_forwarding_port=None,
                             threaded=False,
@@ -169,7 +169,7 @@ class Pyro4Server(object):
 
         self.daemon = Pyro4.Daemon(port=obj_port, host=ns_host)
         self.tunnel.register_remote_daemon(self.daemon, reverse=reverse)
-        self.server_uri = self.daemon.register(self,objectId=obj_id)
+        self.server_uri = self.daemon.register(self,objectId=objectId)
         self.logger.debug("Server uri is {}".format(self.server_uri))
         self.tunnel.ns.register(self._name, self.server_uri)
         self.logger.info("{} available".format(self._name))

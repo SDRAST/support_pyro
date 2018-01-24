@@ -13,9 +13,8 @@ class AsyncProxy(Pyro4.core.Proxy):
     Proxy that has a Pyro4 Daemon attached to it that registers methods.
     """
     _asyncHandlers = {}
-    _asyncHandlersReverseLookup = {}
     __asyncAttributes = frozenset(
-                ["_daemon","_daemon_thread","_asyncHandlers", "_asyncHandlersReverseLookup"]
+        ["_daemon","_daemon_thread","_asyncHandlers"]
     )
 
     def __init__(self, uri, daemon_details=None):
@@ -32,8 +31,6 @@ class AsyncProxy(Pyro4.core.Proxy):
                 host = daemon_details.get("host", None)
                 port = daemon_details.get("port",0)
                 self._daemon = Pyro4.Daemon(host=host, port=port)
-            objectId = daemon_details.get("objectId",None)
-            self._daemon.register(self._asyncHandler, objectId=objectId)
         self._daemon_thread = threading.Thread(target=self._daemon.requestLoop)
         self._daemon_thread.daemon = True
         self._daemon_thread.start()
@@ -106,6 +103,8 @@ class AsyncProxy(Pyro4.core.Proxy):
         AsyncProxy.register(AsyncProxy, fn_or_obj)
         self.register_handlers_with_daemon()
 
+
+
     @classmethod
     def register(cls, fn_or_obj):
         """
@@ -118,15 +117,18 @@ class AsyncProxy(Pyro4.core.Proxy):
         TODO:
             be able to register entire objects or classes.
         """
-        objectId = "obj_" + uuid.uuid4().hex
+        objectId = "obj_" + uuid.uuid4().hex # this is the same signature as Pyro4.core.Daemon
+        module_logger.debug("Creating objectId {} for obj {}".format(objectId, fn_or_obj))
         if inspect.isfunction(fn_or_obj):
             handler_class = AsyncProxy.create_handler_class(fn_or_obj)
             handler_obj = handler_class()
             cls._asyncHandlers[objectId] = handler_obj
-            # cls._asyncHandlersReverseLookup[fn.__name__] = objectId
         else:
             cls._asyncHandlers[objectId] = fn_or_obj
-            # cls._asyncHandlersReverseLookup[fn_or_obj.__class__.__name__] = objectId
+
+    @classmethod
+    def unregister(cls, fn_or_obj):
+        pass
 
     @staticmethod
     def create_handler_class(fn):
@@ -136,7 +138,7 @@ class AsyncProxy(Pyro4.core.Proxy):
             fn (callable): A function that will get exposed and wrapped in a class.
         """
         assert inspect.isfunction(fn), "{} should be of type function, not {}".format(fn, type(fn))
-
+        module_logger.debug("AsyncProxy.create_handler_class: Creating handler class for function {}".format(fn))
         @functools.wraps(fn)
         def fn_wrapper(self, *args, **kwargs):
             return fn(*args, **kwargs)
@@ -147,5 +149,5 @@ class AsyncProxy(Pyro4.core.Proxy):
             pass
 
         setattr(Handler, fn.__name__, exposed_wrapper)
-        Handler.__class__.__name__ = fn.__name__ # not sure this is the best solution
+        Handler.__name__ = fn.__name__ # not sure this is the best solution
         return Handler

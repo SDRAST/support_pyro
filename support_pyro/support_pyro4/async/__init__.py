@@ -5,6 +5,8 @@ import Pyro4
 
 module_logger = logging.getLogger(__name__)
 
+__all__ = ["AsyncCallback", "async_method", "async"]
+
 class AsyncCallback(object):
     """
     Creates an object that has two callable attributes:
@@ -70,8 +72,6 @@ class AsyncCallback(object):
 #
 #     wrapper._pyroAsync = True
 #     return Pyro4.expose(Pyro4.oneway(wrapper))
-
-
 def async_method(func):
     """
     Decorator that declares that a method is to be called asynchronously.

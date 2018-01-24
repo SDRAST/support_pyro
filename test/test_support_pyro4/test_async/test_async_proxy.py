@@ -5,23 +5,46 @@ import unittest
 
 import Pyro4
 
+from ... import setup_logging
+# module_logger = logging.getLogger()
+setup_logging(logging.getLogger())
+
 from support_pyro.support_pyro4.async.async_proxy import AsyncProxy
 from . import test_case_factory, SimpleServer, SimpleAsyncServer
 
 class TestAsyncProxy(test_case_factory(SimpleServer)):
 
+    def setUp(self):
+        self.logger = logging.getLogger("TestAsyncProxy")
+        class Client(object):
+            test_case = self
+            @Pyro4.expose
+            def callback(self, res):
+                self.test_case.assertTrue(res == "hello")
+
+        def callback(res):
+            self.assertTrue(res == "hello")
+
+        self.callback = callback
+        self.Client = Client
+        proxy = AsyncProxy("PYRO:SimpleAsyncServer@localhost:50000")
+        self.proxy = proxy
+
+    def tearDown(self):
+        self.proxy._daemon.shutdown()
+        AsyncProxy._asyncHandlers = {}
+
     def test_init_full_args(self):
         p = AsyncProxy("PYRO:SimpleAsyncServer@localhost:50000",
                                         daemon_details={"host":"localhost",
-                                        "port": 50001,
-                                        "objectId":"AsyncCallbacks"})
+                                        "port": 50001})
         self.assertTrue(isinstance(p, AsyncProxy))
         self.assertTrue(p._daemon.locationStr == "localhost:50001")
-        self.assertTrue("AsyncCallbacks" in p._daemon.objectsById)
+        self.assertEqual(p._asyncHandlers, {})
         p._daemon.shutdown()
 
     def test_init_with_prexisting_daemon(self):
-
+        self.proxy._daemon.shutdown()
         daemon = Pyro4.Daemon(port=50001,host="localhost")
         p = AsyncProxy("PYRO:SimpleAsyncServer@localhost:50000",
                                             daemon_details={"daemon":daemon})
@@ -30,38 +53,39 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
 
     def test_init_no_args(self):
 
-        p = AsyncProxy("PYRO:SimpleAsyncServer@localhost:50000")
-        self.assertTrue("Pyro.Daemon" in p._daemon.objectsById)
-        self.assertTrue("localhost" in p._daemon.locationStr)
-        p._daemon.shutdown()
+        self.assertTrue("Pyro.Daemon" in self.proxy._daemon.objectsById)
+        self.assertTrue("localhost" in self.proxy._daemon.locationStr)
 
-    def test_register_as_class_method(self):
+    def test_lookup_function(self):
 
-        def callback(res):
-            self.assertTrue(res=="hello")
+        self.proxy.register(self.callback)
+        obj = self.proxy.lookup_function(self.callback.__name__)
+        self.logger.debug(obj)
+        self.assertTrue(obj.__class__.__name__ == self.callback.__name__)
 
+    def test_register_function_with_class_method(self):
+
+        callback = self.callback
         AsyncProxy.register(callback)
-        self.assertTrue(callback.__name__ in AsyncProxy.Handler.__dict__)
+        self.logger.debug(self.proxy._asyncHandlers)
+
+    # @unittest.skip("")
+    def test_register_obj_with_class_method(self):
+
+        client = self.Client()
+        AsyncProxy.register(client)
         p = AsyncProxy("PYRO:SimpleAsyncServer@localhost:50000")
-        p._asyncHandler.callback("hello")
-        p._daemon.shutdown()
 
-    def test_register_as_instance_method(self):
+    # @unittest.skip("")
+    def test_register_function_with_instance_method(self):
 
-        class Client(object):
+        self.proxy.register(self.callback)
 
-            test_case = self
+    # @unittest.skip("")
+    def test_register_obj_with_instance_method(self):
 
-            @Pyro4.expose
-            def callback(self, res):
-                self.test_case.assertTrue(res == "hello")
-
-        client = Client()
-        p = AsyncProxy("PYRO:SimpleAsyncServer@localhost:50000")
-        p.register(client)
-        p._asyncHandler.callback("hello")
-        p._daemon.shutdown()
+        client = self.Client()
+        self.proxy.register(client)
 
 if __name__ == "__main__":
-    logging.basicConfig(stream=sys.stdout,level=logging.DEBUG)
     unittest.main()

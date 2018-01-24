@@ -1,8 +1,30 @@
+import logging 
 import threading
 
 import Pyro4
 
 from support_pyro.support_pyro4 import Pyro4Server, config, async_method, Pyro4PublisherServer, Pyro4Subscriber
+
+def setup_logging(logger, logfile=None, logLevel=logging.DEBUG):
+
+    formatter = logging.Formatter('%(levelname)s:%(name)s:%(message)s')
+
+    logger.handlers = []
+    logger.setLevel(logLevel)
+
+    if logfile is not None:
+        fh = logging.FileHandler(logfile)
+        fh.setLevel(logging.DEBUG)
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
+
+    sh = logging.StreamHandler()
+    sh.setLevel(logLevel)
+    sh.setFormatter(formatter)
+    logger.addHandler(sh)
+
+    return logger
+
 
 class BasicTestZmqSubscriber(Pyro4Subscriber):
 

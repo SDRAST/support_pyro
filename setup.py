@@ -5,8 +5,8 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 setup(
-    name = "pyro_support",
-    version = "1.1.0",
+    name = "support_pyro",
+    version = "1.3.0a",
     author = "TAMS team",
     author_email = "dean.shaff@gmail.com",
     description = ("Server and client extensions for pyro4tunneling"),

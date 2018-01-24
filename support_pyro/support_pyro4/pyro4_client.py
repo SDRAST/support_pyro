@@ -8,7 +8,6 @@ __all__ = ['AutoReconnectingProxy', 'Pyro4Client']
 
 module_logger = logging.getLogger(__name__)
 
-
 class AutoReconnectingProxy(Pyro4.core.Proxy):
     """
     A Pyro proxy that automatically recovers from a server disconnect.
@@ -21,7 +20,6 @@ class AutoReconnectingProxy(Pyro4.core.Proxy):
     TAKEN FROM PYRO4 DISCONNECT EXAMPLE
 
     """
-
     def _pyroInvoke(self, *args, **kwargs):
         # We override the method that does the actual remote calls: _pyroInvoke.
         # If there's still a connection, try a ping to see if it is still alive.

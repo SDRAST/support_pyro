@@ -12,29 +12,15 @@ class AsyncProxy(Pyro4.core.Proxy):
     """
     Proxy that has a Pyro4 Daemon attached to it that registers methods.
     """
-
     _asyncHandlers = {}
-
-    # class Handler(object):
-    #     pass
-        # @classmethod
-        # def register_existing_methods(cls, cls_or_obj):
-        #     for method_name in dir(cls_or_obj):
-        #         method = getattr(cls_or_obj, method_name)
-        #         if "_pyroExposed" in dir(method):
-        #             if method._pyroExposed:
-        #                 print("Setting method: {}".format(method_name))
-        #                 setattr(cls, method_name, method)
-
-
-    __asyncAttributes = frozenset(["_daemon","_daemon_thread","_asyncHandlers"])
+    _asyncHandlersReverseLookup = {}
+    __asyncAttributes = frozenset(
+                ["_daemon","_daemon_thread","_asyncHandlers", "_asyncHandlersReverseLookup"]
+    )
 
     def __init__(self, uri, daemon_details=None):
 
         Pyro4.core.Proxy.__init__(self, uri)
-
-        # AsyncProxy.Handler.register_existing_methods(self)
-        # self._asyncHandlers = AsyncProxy.Handler()
 
         if daemon_details is None:
             self._daemon = Pyro4.Daemon()
@@ -68,34 +54,53 @@ class AsyncProxy(Pyro4.core.Proxy):
         kwargs dictionary to automatically include a reference to the
         self._asyncHandler attribute.
         """
-        print("_pyroInvoke: Called. methodname: {}, vargs: {}, kwargs: {}".format(methodname, vargs, kwargs))
-        callback = kwargs.pop("callback", None)
+        module_logger.debug("_pyroInvoke: Called. methodname: {}, vargs: {}, kwargs: {}".format(methodname, vargs, kwargs))
+        callback = None
+        for key in ["callback", "cb_info", "cb"]:
+            if key in kwargs:
+                callback = kwargs.pop(key)
+                break
+
         if callback is not None:
-            handler = self._asyncHandler
             callback_dict = {}
-            if callable(callback):
+            if inspect.isfunction(callback):
                 method_name = callback.__name__
+                handler = self.lookup_function(method_name)
+            elif inspect.ismethod(callback):
+                method_name = callback.__name__
+                handler = method_name.im_self
             elif isinstance(callback, str):
                 method_name = callback
+                handler = self.lookup_function(method_name)
             elif isinstance(callback, dict):
                 method_name = callback["callback"]
                 handler = callback["handler"]
 
-            callback_dict["handler"] = handler
-            callback_dict["callback"] = method_name
-            kwargs["callback"] = callback_dict
+            callback_dict["cb_handler"] = handler
+            callback_dict["cb"] = method_name
+            kwargs["cb_info"] = callback_dict
 
         return super(AsyncProxy, self)._pyroInvoke(methodname,
                                             vargs, kwargs,
                                             flags=flags,
                                             objectId=objectId)
-
+    def lookup_function(self, fn_name):
+        """
+        Given some function name, look it up in self._asyncHandlers, and
+        return the object to which it refers.
+        Args:
+            fn_name (str):
+        """
+        for objectId in self._asyncHandlers:
+            obj = self._asyncHandlers[objectId]
+            if obj.__class__.__name__ == fn_name:
+                return obj
+        raise RuntimeError("Couldn't find {} in current async handlers".format(fn_name))
 
     def register_handlers_with_daemon(self):
         for objectId in self._asyncHandlers:
             if objectId not in self._daemon.objectsById:
                 self._daemon.register(self._asyncHandlers[objectId], objectId=objectId)
-
 
     def register(self, fn_or_obj):
         AsyncProxy.register(AsyncProxy, fn_or_obj)
@@ -113,19 +118,22 @@ class AsyncProxy(Pyro4.core.Proxy):
         TODO:
             be able to register entire objects or classes.
         """
+        objectId = "obj_" + uuid.uuid4().hex
         if inspect.isfunction(fn_or_obj):
-            objectId = uuid.uuid4()
             handler_class = AsyncProxy.create_handler_class(fn_or_obj)
-            cls._asyncHandlers[objectId] = handler_class()
+            handler_obj = handler_class()
+            cls._asyncHandlers[objectId] = handler_obj
+            # cls._asyncHandlersReverseLookup[fn.__name__] = objectId
         else:
-            objectId = uuid.uuid4()
             cls._asyncHandlers[objectId] = fn_or_obj
+            # cls._asyncHandlersReverseLookup[fn_or_obj.__class__.__name__] = objectId
 
     @staticmethod
     def create_handler_class(fn):
         """
         From a non instance method function, create a wrapper class
         Args:
+            fn (callable): A function that will get exposed and wrapped in a class.
         """
         assert inspect.isfunction(fn), "{} should be of type function, not {}".format(fn, type(fn))
 
@@ -139,5 +147,5 @@ class AsyncProxy(Pyro4.core.Proxy):
             pass
 
         setattr(Handler, fn.__name__, exposed_wrapper)
-
+        Handler.__class__.__name__ = fn.__name__ # not sure this is the best solution
         return Handler

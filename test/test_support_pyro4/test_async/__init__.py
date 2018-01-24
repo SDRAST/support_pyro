@@ -1,9 +1,12 @@
+import logging
 import threading
 import unittest
 
 import Pyro4
 
 from support_pyro.support_pyro4.async import async
+
+module_logger = logging.getLogger(__name__)
 
 class SimpleServer(object):
 
@@ -15,8 +18,8 @@ class SimpleAsyncServer(object):
 
     @async
     def ping_with_response(self):
-        print("ping_with_response: Called.")
-        self.ping_with_response.callback("hello")
+        module_logger.debug("ping_with_response: Called.")
+        self.ping_with_response.cb("hello")
 
 
 def test_case_factory(server_cls):

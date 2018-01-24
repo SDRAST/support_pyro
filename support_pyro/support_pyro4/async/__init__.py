@@ -1,6 +1,7 @@
 import logging
 import functools
 
+import six
 import Pyro4
 
 module_logger = logging.getLogger(__name__)
@@ -145,7 +146,7 @@ def async_method(func):
             this = self
         else:
             this = wrapper
-        module_logger.debug("{}: {}".format(name, kwargs))
+        module_logger.debug("async.wrapper.{}: kwargs: {}".format(name, kwargs))
         if 'cb_info' in kwargs:
             cb_info = kwargs.pop("cb_info")
         else:
@@ -159,8 +160,8 @@ def async_method(func):
 
         this.cb_info = cb_info
         this.socket_info = socket_info
-        module_logger.debug("{}: {}".format(name, this.cb_info))
-        module_logger.debug("{}: {}".format(name, this.socket_info))
+        module_logger.debug("async.wrapper.{}: cb_info: {}".format(name, this.cb_info))
+        module_logger.debug("async.wrapper.{}: socket_info: {}".format(name, this.socket_info))
         cur_handler = getattr(self, "cb_handler", None)
         if this.cb_info:
             if "cb_handler" not in this.cb_info:

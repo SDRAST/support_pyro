@@ -7,7 +7,6 @@ import unittest
 import Pyro4
 
 from ... import setup_logging
-# module_logger = logging.getLogger()
 setup_logging(logging.getLogger(), logLevel=logging.INFO)
 
 from support_pyro.support_pyro4.async.async_proxy import AsyncProxy

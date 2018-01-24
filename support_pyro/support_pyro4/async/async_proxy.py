@@ -65,7 +65,7 @@ class AsyncProxy(Pyro4.core.Proxy):
                 handler, handler_id = self.lookup_function(method_name)
             elif inspect.ismethod(callback):
                 method_name = callback.__name__
-                handler = method_name.im_self
+                handler = callback.im_self
             elif isinstance(callback, str):
                 method_name = callback
                 handler, handler_id = self.lookup_function(method_name)
@@ -82,10 +82,21 @@ class AsyncProxy(Pyro4.core.Proxy):
                                             flags=flags,
                                             objectId=objectId)
 
+    def shutdown(self):
+        self._daemon.shutdown()
+
     def register_handlers_with_daemon(self):
+        module_logger.debug("register_handlers_with_daemon: self._daemon.objectsById: {}".format(self._daemon.objectsById))
+        module_logger.debug("register_handlers_with_daemon: self._asyncHandlers: {}".format(self._asyncHandlers))
         for objectId in self._asyncHandlers:
-            if objectId not in self._daemon.objectsById:
-                self._daemon.register(self._asyncHandlers[objectId], objectId=objectId)
+            obj = self._asyncHandlers[objectId]
+            if objectId not in self._daemon.objectsById and not hasattr(obj, "_pyroId"):
+                module_logger.debug(
+                    "register_handlers_with_daemon: Registering object {} with objectId {}".format(
+                        obj, objectId
+                    )
+                )
+                self._daemon.register(obj, objectId=objectId)
 
     def register(self, fn_or_obj):
         AsyncProxy.register(AsyncProxy, fn_or_obj)

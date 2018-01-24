@@ -13,8 +13,7 @@ def repeat_callback(res):
     called["repeat_callback"] = True
     print(res)
 
-AsyncProxy.register(square_callback)
-AsyncProxy.register(repeat_callback)
+AsyncProxy.register(square_callback, repeat_callback)
 
 uri = "PYRO:Server@localhost:50001"
 

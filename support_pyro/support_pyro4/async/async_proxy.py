@@ -103,27 +103,28 @@ class AsyncProxy(Pyro4.core.Proxy):
         self.register_handlers_with_daemon()
 
     @classmethod
-    def register(cls, fn_or_obj):
+    def register(cls, *fn_or_objs):
         """
         Register a function (not a method) with the AsyncProxy.
         Args:
-            fn (callback): A function that doesn't take self as it's first
+            fn_or_objs (callback): A function that doesn't take self as it's first
                 parameter
         Returns:
             None
         """
-        objectId = "obj_" + uuid.uuid4().hex # this is the same signature as Pyro4.core.Daemon
-        module_logger.debug("Creating objectId {}... for obj {}".format(objectId[4:11], fn_or_obj))
-        if inspect.isfunction(fn_or_obj):
-            handler_class = AsyncProxy.create_handler_class(fn_or_obj)
-            handler_obj = handler_class()
-        else:
-            handler_obj = fn_or_obj
-        name = handler_obj.__class__.__name__
-        if cls.lookup_function(name) is None:
-            cls._asyncHandlers[objectId] = handler_obj
-        else:
-            raise RuntimeError("Function or object with name {} already registered".format(name))
+        for fn_or_obj in fn_or_objs:
+            objectId = "obj_" + uuid.uuid4().hex # this is the same signature as Pyro4.core.Daemon
+            module_logger.debug("Creating objectId {}... for obj {}".format(objectId[4:11], fn_or_obj))
+            if inspect.isfunction(fn_or_obj):
+                handler_class = AsyncProxy.create_handler_class(fn_or_obj)
+                handler_obj = handler_class()
+            else:
+                handler_obj = fn_or_obj
+            name = handler_obj.__class__.__name__
+            if cls.lookup_function(name) is None:
+                cls._asyncHandlers[objectId] = handler_obj
+            else:
+                raise RuntimeError("Function or object with name {} already registered".format(name))
 
     def lookup_function(self, fn_name):
         return AsyncProxy.lookup_function(AsyncProxy, fn_name)

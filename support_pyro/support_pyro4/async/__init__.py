@@ -5,6 +5,8 @@ import six
 import Pyro4
 
 module_logger = logging.getLogger(__name__)
+# print("from {}".format(module_logger.name))
+module_logger.debug("from {}".format(__name__))
 
 __all__ = ["AsyncCallback", "async_method", "async"]
 
@@ -131,6 +133,7 @@ def async_method(func):
     Args:
         func (function): Function or method we'd like to decorate
     """
+    module_logger.debug("async_method: called")
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
         """

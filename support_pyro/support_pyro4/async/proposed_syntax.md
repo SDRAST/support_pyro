@@ -51,3 +51,26 @@ proxy = AsyncProxy("PYRO:SimpleAsyncServer@localhost:9090")
 proxy.register(client)
 proxy.method1(2,callback="method1_callback")
 ```
+
+## Revision 25/01/2018
+
+In implementing this code, I realized I could one up the original proposed syntax
+by simply doing the following in client code:
+
+```python
+# revised_example_client.py
+
+import Pyro4
+
+from support_pyro.support_pyro4.async.async_proxy import AsyncProxy
+
+def handler(res):
+    print(res)
+
+proxy = AsyncProxy("PYRO:SimpleAsyncServer@localhost:9090")
+proxy.method1(2, callback=handler)
+```
+
+We _automatically_ register methods inside the overridden `_pyroInvoke`.
+As a result, I'm going to get rid of the `_asyncHandlers` class attribute,
+instead opting for a `_asyncHandlers` instance attribute. 

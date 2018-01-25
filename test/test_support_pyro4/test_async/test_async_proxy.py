@@ -7,7 +7,7 @@ import unittest
 import Pyro4
 
 from ... import setup_logging
-setup_logging(logging.getLogger(), logLevel=logging.INFO)
+setup_logging(logging.getLogger(), logLevel=logging.DEBUG)
 
 from support_pyro.support_pyro4.async.async_proxy import AsyncProxy
 from . import test_case_factory, SimpleServer, SimpleAsyncServer
@@ -64,50 +64,32 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
         self.assertTrue("Pyro.Daemon" in self.proxy._daemon.objectsById)
         self.assertTrue("localhost" in self.proxy._daemon.locationStr)
 
-    def test_lookup_function_with_function(self):
+    def test_lookup_with_function(self):
         self.proxy.register(self.callback)
-        obj, obj_id = self.proxy.lookup_function(self.callback)
+        obj, obj_id = self.proxy.lookup(self.callback)
         self.assertTrue(obj.__class__.__name__ == self.callback.__name__)
         self.assertTrue(inspect.ismethod(obj.callback))
         obj.callback("hello")
         self.assertTrue(self.called["callback"])
 
-    def test_lookup_function_with_function_name(self):
+    def test_lookup_with_function_name(self):
         self.proxy.register(self.callback)
-        obj, obj_id = self.proxy.lookup_function(self.callback.__name__)
+        obj, obj_id = self.proxy.lookup(self.callback.__name__)
         self.assertTrue(obj.__class__.__name__ == self.callback.__name__)
         self.assertTrue(inspect.ismethod(obj.callback))
         obj.callback("hello")
         self.assertTrue(self.called["callback"])
 
-    def test_lookup_function_with_obj(self):
+    def test_lookup_with_obj(self):
         client = self.Client()
         self.proxy.register(client)
-        obj, obj_id = self.proxy.lookup_function(client)
+        obj, obj_id = self.proxy.lookup(client)
         self.assertTrue(obj is client)
-
-    def test_register_function_with_class_method(self):
-
-        callback = self.callback
-        AsyncProxy.register(callback)
-        self.logger.debug(self.proxy._asyncHandlers)
-        obj, obj_id = self.proxy.lookup_function("callback")
-        obj.callback("hello")
-        self.assertTrue(self.called["callback"])
-
-    def test_register_obj_with_class_method(self):
-
-        client = self.Client()
-        AsyncProxy.register(client)
-        p = AsyncProxy("PYRO:SimpleAsyncServer@localhost:50000")
-        obj, obj_id = p.lookup_function(client)
-        obj.callback("hello")
-        self.assertTrue(client.called["callback"])
 
     def test_register_function_with_instance_method(self):
 
         self.proxy.register(self.callback)
-        obj, obj_id = self.proxy.lookup_function("callback")
+        obj, obj_id = self.proxy.lookup("callback")
         obj.callback("hello")
         self.assertTrue(self.called["callback"])
 
@@ -115,10 +97,9 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
 
         client = self.Client()
         self.proxy.register(client)
-        obj, obj_id = self.proxy.lookup_function(client)
+        obj, obj_id = self.proxy.lookup(client)
         obj.callback("hello")
         self.assertTrue(client.called["callback"])
-
 
 if __name__ == "__main__":
     unittest.main()

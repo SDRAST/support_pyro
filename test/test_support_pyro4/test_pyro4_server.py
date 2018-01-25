@@ -51,14 +51,17 @@ class TestBasic(unittest.TestCase):
         self.assertRaises(Pyro4ServerError, f)
 
     def test_launch_server(self):
-        self.server.launch_server(
+        t = self.server.launch_server(
                                     ns_port=self.ns_port,
                                     ns_host=self.ns_host,
                                     local=True, threaded=True
-        )
-        self.assertTrue(self.server.running)
-
-
+        )["thread"]
+        self.assertTrue(self.server.running())
+        self.server.close()
+        self.logger.debug("server still running: {}".format(self.server.running()))
+        while self.server.running():
+            pass
+        self.assertFalse(self.server.running())
 
 if __name__ == "__main__":
     setup_logging()

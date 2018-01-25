@@ -45,11 +45,13 @@ class AsyncProxy(Pyro4.core.Proxy):
         self._daemon_thread.start()
 
     def __getattr__(self, name):
+        """Make sure that we can access the custom __asyncAttributes"""
         if name in AsyncProxy.__asyncAttributes:
             return super(Pyro4.core.Proxy, self).__getattribute__(name)
         return Pyro4.core.Proxy.__getattr__(self,name)
 
     def __setattr__(self, name, value):
+        """Make sure that we can access the custom __asyncAttributes"""
         if name in AsyncProxy.__asyncAttributes:
             return object.__setattr__(self,name,value)
         return Pyro4.core.Proxy.__setattr__(self, name, value)
@@ -96,9 +98,11 @@ class AsyncProxy(Pyro4.core.Proxy):
         return resp
 
     def shutdown(self):
+        """proxy for the daemon shutdown method."""
         self._daemon.shutdown()
 
     def register_handlers_with_daemon(self):
+        """Register all the objects in _asyncHandlers with the _daemon attribute"""
         module_logger.debug("register_handlers_with_daemon: self._daemon.objectsById (before): {}".format(list(self._daemon.objectsById.keys())))
         module_logger.debug("register_handlers_with_daemon: self._asyncHandlers: {}".format(list(self._asyncHandlers.keys())))
         for objectId in self._asyncHandlers:

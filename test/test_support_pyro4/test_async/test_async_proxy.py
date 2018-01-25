@@ -7,7 +7,6 @@ import unittest
 import Pyro4
 
 from ... import setup_logging
-setup_logging(logging.getLogger(), logLevel=logging.DEBUG)
 
 from support_pyro.support_pyro4.async.async_proxy import AsyncProxy
 from . import test_case_factory, SimpleServer, SimpleAsyncServer
@@ -86,14 +85,14 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
         obj, obj_id = self.proxy.lookup(client)
         self.assertTrue(obj is client)
 
-    def test_register_function_with_instance_method(self):
+    def test_register_function(self):
 
         self.proxy.register(self.callback)
         obj, obj_id = self.proxy.lookup("callback")
         obj.callback("hello")
         self.assertTrue(self.called["callback"])
 
-    def test_register_obj_with_instance_method(self):
+    def test_register_obj_with(self):
 
         client = self.Client()
         self.proxy.register(client)
@@ -101,5 +100,48 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
         obj.callback("hello")
         self.assertTrue(client.called["callback"])
 
+    def test_register_multiple_obj(self):
+        client = self.Client()
+        callback = self.callback
+        self.proxy.register(client, callback)
+        obj, objectId = self.proxy.lookup(callback)
+        obj.callback("hello")
+        self.assertTrue(self.called["callback"])
+        obj, objectId = self.proxy.lookup(client)
+        obj.callback("hello")
+        self.assertTrue(client.called["callback"])
+
+    def test_register_handlers_with_daemon(self):
+        callback = self.callback
+        self.proxy.register(callback)
+        self.proxy.register_handlers_with_daemon()
+        obj, objectId = self.proxy.lookup(callback)
+        self.assertTrue(objectId in self.proxy._asyncHandlers)
+        self.assertTrue(objectId in self.proxy._daemon.objectsById)
+
+    def test_unregister_obj(self):
+        client = self.Client()
+        self.proxy.register(client)
+        self.proxy.unregister(client)
+        self.assertTrue(self.proxy._asyncHandlers == {})
+
+    def test_unregister_obj_from_daemon(self):
+        client = self.Client()
+        self.proxy.register(client)
+        self.proxy.register_handlers_with_daemon()
+        self.proxy.unregister(client)
+        self.assertTrue(self.proxy._asyncHandlers == {})
+        self.assertTrue(self.proxy._daemon.objectsById.keys() == ["Pyro.Daemon"])
+
+    def test_create_handler_class(self):
+        def fn(x, y):
+            return x, y
+        handler = AsyncProxy.create_handler_class(fn)
+        handler_obj = handler()
+        res = handler_obj.fn(5,6)
+        self.assertTrue(handler.__name__ == fn.__name__)
+        self.assertTrue(res == (5,6))
+
 if __name__ == "__main__":
+    setup_logging(logLevel=logging.INFO)
     unittest.main()

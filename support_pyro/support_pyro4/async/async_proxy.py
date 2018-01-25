@@ -185,7 +185,12 @@ class AsyncProxy(Pyro4.core.Proxy):
         else:
             obj, objectId = obj_info
             del self._asyncHandlers[objectId]
-            self._daemon.unregister(objectId)
+            if objectId in self._daemon.objectsById:
+                self._daemon.unregister(objectId)
+            else:
+                module_logger.debug(
+                    "unregister: Didn't unregister object {} from daemon".format(obj)
+                )
 
     @staticmethod
     def create_handler_class(fn):

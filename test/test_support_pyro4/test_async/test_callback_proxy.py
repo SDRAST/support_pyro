@@ -8,10 +8,10 @@ import Pyro4.socketutil
 
 import pyro4tunneling
 
-from pyro_support.util import AsyncCallback
+from pyro_support.util import CallbackProxy
 from pyro_support import Pyro4Server, config
 
-class TestAsyncCallback(unittest.TestCase):
+class TestCallbackProxy(unittest.TestCase):
 
     def test_function_str_name_cb(self):
         """
@@ -22,11 +22,11 @@ class TestAsyncCallback(unittest.TestCase):
             return x**2
 
         with self.assertRaises(RuntimeError):
-            AsyncCallback(cb_info={"cb":"square"})
+            CallbackProxy(cb_info={"cb":"square"})
 
     def test_function_cb(self):
         """
-        Test whether we can create an AsyncCallback object with a simple function
+        Test whether we can create an CallbackProxy object with a simple function
         """
         def square(x):
             return x**2
@@ -34,17 +34,17 @@ class TestAsyncCallback(unittest.TestCase):
         def cube(x):
             return x**3
 
-        async_cb = AsyncCallback(cb_info={"cb":square, "cb_updates":cube})
+        async_cb = CallbackProxy(cb_info={"cb":square, "cb_updates":cube})
         self.assertIsInstance(async_cb.cb, types.FunctionType)
         self.assertIsInstance(async_cb.cb_updates, types.FunctionType)
-        async_cb = AsyncCallback(cb_info={"cb":square})
+        async_cb = CallbackProxy(cb_info={"cb":square})
         self.assertIsInstance(async_cb.cb, types.FunctionType)
-        async_cb = AsyncCallback(cb_info={"cb_updates":cube})
+        async_cb = CallbackProxy(cb_info={"cb_updates":cube})
         self.assertIsInstance(async_cb.cb_updates, types.FunctionType)
 
     def test_instance_method_cb(self):
         """
-        Test whether we can create an AsyncCallback object with an instance method.
+        Test whether we can create an CallbackProxy object with an instance method.
         """
         class TestClass(object):
             def square(self, x):
@@ -53,12 +53,12 @@ class TestAsyncCallback(unittest.TestCase):
                 return x**3
 
         test_object = TestClass()
-        async_cb = AsyncCallback(cb_info={"cb":test_object.square, "cb_updates":test_object.cube})
+        async_cb = CallbackProxy(cb_info={"cb":test_object.square, "cb_updates":test_object.cube})
         self.assertIsInstance(async_cb.cb, types.MethodType)
         self.assertIsInstance(async_cb.cb_updates, types.MethodType)
-        async_cb = AsyncCallback(cb_info={"cb":test_object.square})
+        async_cb = CallbackProxy(cb_info={"cb":test_object.square})
         self.assertIsInstance(async_cb.cb, types.MethodType)
-        async_cb = AsyncCallback(cb_info={"cb_updates":test_object.cube})
+        async_cb = CallbackProxy(cb_info={"cb_updates":test_object.cube})
         self.assertIsInstance(async_cb.cb_updates, types.MethodType)
 
     def test_socket_cb(self):
@@ -73,7 +73,7 @@ class TestAsyncCallback(unittest.TestCase):
 
         app, socketio, server = BasicServer.flaskify_io()
 
-        async_cb = AsyncCallback(cb_info={"cb":"cb", "cb_updates":"cb_updates"},
+        async_cb = CallbackProxy(cb_info={"cb":"cb", "cb_updates":"cb_updates"},
                                  socket_info={"app":app, "socketio": socketio})
 
         self.assertTrue(async_cb.cb.__name__=="emit_f")
@@ -108,7 +108,7 @@ class TestAsyncCallback(unittest.TestCase):
         ns = Pyro4.locateNS(port=port)
         bs_proxy = Pyro4.Proxy(ns.lookup("BasicServer"))
 
-        async_cb = AsyncCallback(cb_info={"cb_handler":bs_proxy,
+        async_cb = CallbackProxy(cb_info={"cb_handler":bs_proxy,
                                           "cb":"square",
                                           "cb_updates":"cube"})
 

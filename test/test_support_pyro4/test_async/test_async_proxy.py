@@ -8,6 +8,7 @@ import Pyro4
 
 from ... import setup_logging
 
+from support_pyro.support_pyro4.async import async_callback
 from support_pyro.support_pyro4.async.async_proxy import AsyncProxy
 from . import test_case_factory, SimpleServer, SimpleAsyncServer
 
@@ -23,14 +24,16 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
             called = {
                 "callback": False
             }
-            @Pyro4.expose
+            @async_callback
             def callback(self, res):
                 self.called["callback"] = True
                 self.test_case.assertTrue(res == "hello")
+                return res
 
         def callback(res):
             self.called["callback"] = True
             self.assertTrue(res == "hello")
+            return res
 
         self.callback = callback
         self.Client = Client
@@ -148,12 +151,22 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
         res = self.proxy.lookup_function_or_method(self.callback)
         self.assertTrue(res["method"] == self.callback.__name__)
 
-    def test_wait_for_callback(self):
+    def test_wait_for_callback_fn(self):
 
         self.proxy.register(self.callback)
         obj, _ = self.proxy.lookup(self.callback)
         obj.callback("hello")
-        self.proxy.wait_for_callback(self.callback)
+        res = self.proxy.wait_for_callback(self.callback)
+        self.assertTrue(res == "hello")
+
+    def test_wait_for_callback_obj(self):
+        client = self.Client()
+        self.proxy.register(client)
+        obj, _ = self.proxy.lookup(client)
+        obj.callback("hello")
+        res = self.proxy.wait_for_callback(client.callback)
+        self.assertTrue(res == "hello")
+
 
 
 if __name__ == "__main__":

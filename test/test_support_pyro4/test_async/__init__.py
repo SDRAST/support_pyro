@@ -6,7 +6,7 @@ import Pyro4
 # from ... import setup_logging
 # setup_logging(logLevel=logging.DEBUG)
 
-from support_pyro.support_pyro4 import async
+from support_pyro.support_pyro4.async import async_method
 
 module_logger = logging.getLogger(__name__)
 module_logger.debug("from __init__")
@@ -24,7 +24,7 @@ class SimpleServer(object):
 class SimpleAsyncServer(object):
 
     # @Pyro4.expose
-    @async
+    @async_method
     def ping_with_response(self):
         module_logger.info("ping_with_response: Called.")
         module_logger.info(

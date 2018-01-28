@@ -216,14 +216,15 @@ class AsyncProxy(Pyro4.core.Proxy):
             None
         """
         res = self.lookup_function_or_method(callback)
+        method_name = res["method"]
         obj, _ = self.lookup(res["obj"])
-        callback = getattr(obj, res["method"])
+        callback = getattr(obj, method_name)
 
-        while not callback._called:
+        while not obj._called[method_name]:
             pass
 
-        callback._called = False
-        return callback._res
+        obj._called[method_name] = False
+        return obj._res[method_name]
 
     @staticmethod
     def create_handler_class(fn):
@@ -237,17 +238,17 @@ class AsyncProxy(Pyro4.core.Proxy):
 
         @functools.wraps(fn)
         def fn_wrapper(self, *args, **kwargs):
+            self._called[fn.__name__] = True
             res = fn(*args, **kwargs)
-            fn_wrapper._res = res
-            fn_wrapper._called = True
+            self._res[fn.__name__] = res
             return res
 
-        fn_wrapper._called = False
-        fn_wrapper._res = None
         exposed_wrapper = Pyro4.expose(fn_wrapper)
 
         class Handler(object):
-            pass
+            def __init__(self):
+                self._called = {fn.__name__: False}
+                self._res = {fn.__name__: None}
 
         setattr(Handler, fn.__name__, exposed_wrapper)
         Handler.__name__ = fn.__name__ # not sure this is the best solution

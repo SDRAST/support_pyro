@@ -8,9 +8,9 @@ module_logger = logging.getLogger(__name__)
 # print("from {}".format(module_logger.name))
 module_logger.debug("from {}".format(__name__))
 
-__all__ = ["AsyncCallback", "async_method", "async"]
+__all__ = ["CallbackProxy", "async_method", "async_callback"]
 
-class AsyncCallback(object):
+class CallbackProxy(object):
     """
     Creates an object that has two callable attributes:
     cb: A 'final' callback function -- a client side method that is meant
@@ -153,7 +153,7 @@ def async_method(func):
         if this.cb_info:
             if "cb_handler" not in this.cb_info:
                 this.cb_info["cb_handler"] = cur_handler
-        async_cb = AsyncCallback(cb_info=this.cb_info, socket_info=this.socket_info, func_name=name)
+        async_cb = CallbackProxy(cb_info=this.cb_info, socket_info=this.socket_info, func_name=name)
         this.cb = async_cb.cb
         this.cb_updates = async_cb.cb_updates
         this.cb_handler = async_cb.cb_handler
@@ -168,4 +168,17 @@ def async_method(func):
     wrapper._pyroAsync = True
     return Pyro4.expose(Pyro4.oneway(wrapper))
 
-async = async_method
+def async_callback(fn):
+    @functools.wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        if not hasattr(self, "_called"):
+            self._called = {fn.__name__: False}
+        if not hasattr(self, "_res"):
+            self._res = {fn.__name__:None}
+
+        self._called[fn.__name__] = True
+        res = fn(self, *args, **kwargs)
+        self._res[fn.__name__] = res
+        return res
+    wrapper._asyncCallback = True
+    return Pyro4.expose(wrapper)

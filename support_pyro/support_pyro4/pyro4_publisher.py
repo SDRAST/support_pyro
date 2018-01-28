@@ -9,7 +9,7 @@ import Pyro4
 from .configuration import config
 from .pyro4_server import Pyro4Server, Pyro4ServerError
 from .util import PausableThread, iterative_run
-from .async import AsyncCallback
+from .async import CallbackProxy
 
 __all__ = ["ZmqPublisherThread","Pyro4PublisherThread", "Pyro4PublisherServer"]
 

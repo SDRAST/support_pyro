@@ -5,12 +5,17 @@ import time
 import Pyro4
 import zmq
 
-from .util import PausableThread
+from ..util import PausableThread, EventEmitter
+
+__all__ = ["PublisherThread", "Publisher"]
 
 class PublisherThread(PausableThread):
 
-    def run(self):
+    def __init__(self, *args, **kwargs):
+        super(PublisherThread, self).__init__(*args, **kwargs)
+        self.event_emitter = EventEmitter()
 
+    def run(self):
         while True:
             if self.stopped():
                 break
@@ -18,12 +23,26 @@ class PublisherThread(PausableThread):
                 time.sleep(0.001)
                 continue
             else:
-                self.running_event.set()
+                self._running_event.set()
                 if sys.version_info[0] == 2:
                     self._Thread__target(*self._Thread__args, **self._Thread__kwargs)
                 else:
                     self._target(*self._args, **self._kwargs)
-                self.running_event.clear()
+                self._running_event.clear()
+
+    def stop_thread(self):
+        self.event_emitter.emit("stop")
+        return super(PublisherThread, self).stop_thread()
+
+    def pause_thread(self):
+        self.event_emitter.emit("pause")
+        return super(PublisherThread, self).pause_thread()
+
+    def unpause_thread(self):
+        self.event_emitter.emit("unpause")
+        return super(PublisherThread, self).unpause_thread()
+
+
 
 class Publisher(object):
     """
@@ -36,6 +55,7 @@ class Publisher(object):
         self._socket = None
         self._lock = threading.Lock()
         self.publisher_thread = None
+        self._serializer_name = serializer
         self._serializer = Pyro4.util.get_serializer(serializer)
 
     def publish(self):

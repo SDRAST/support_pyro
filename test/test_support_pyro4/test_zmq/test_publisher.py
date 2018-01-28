@@ -3,6 +3,8 @@ import logging
 import time
 import random
 
+import Pyro4
+
 from support_pyro.support_pyro4.zmq import Publisher
 from support_pyro.support_pyro4.util import EventEmitter
 
@@ -39,10 +41,11 @@ class TestPublisher(unittest.TestCase):
     def tearDown(self):
         self.publisher.stop_publishing()
 
-
     def test_serializer(self):
-        pass
+        self.assertTrue(self.publisher._serializer_name == Pyro4.config.SERIALIZER)
+        self.assertTrue(self.publisher._serializer == Pyro4.util.get_serializer(Pyro4.config.SERIALIZER))
 
+    # @unittest.skip("")
     def test_start_publishing(self):
 
         def on_publish(res):
@@ -65,6 +68,7 @@ class TestPublisher(unittest.TestCase):
         self.assertTrue(on_publish.called)
         self.publisher.stop_publishing()
 
+    # @unittest.skip("")
     def test_pause_publishing(self):
 
         def on_pause():
@@ -80,6 +84,7 @@ class TestPublisher(unittest.TestCase):
 
         self.assertTrue(on_pause.called)
 
+    # @unittest.skip("")
     def test_stop_publishing(self):
 
         def on_stop():

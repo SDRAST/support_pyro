@@ -100,16 +100,18 @@ class PausableThread(threading.Thread):
     A pausable, stoppable thread.
 	It also has a running flag that can be used to determine if the process is still running.
 	"""
-    def __init__(self, name="PausableThread", logger=None):
+    def __init__(self, *args, **kwargs):
         """
 		"""
-        threading.Thread.__init__(self)
-        self.daemon = True
-        self.name = name
-        if not logger:
+        name = kwargs.pop("name","PausableThread")
+        logger = kwargs.pop("logger",None)
+        super(PausableThread, self).__init__(*args, **kwargs)
+        if logger is None:
             self.logger = logging.getLogger("{}.{}".format(module_logger.name, name))
         else:
             self.logger = logger
+        self.name = name
+        self.daemon = True
         self._lock = threading.Lock()
         self._pause_event = threading.Event()
         self._stop_event = threading.Event()
@@ -122,11 +124,20 @@ class PausableThread(threading.Thread):
 		"""
         self._stop_event.set()
 
+    def stop(self):
+        return self.stop_thread()
+
     def pause_thread(self):
         self._pause_event.set()
 
+    def pause(self):
+        return self.pause_thread()
+
     def unpause_thread(self):
         self._pause_event.clear()
+
+    def unpause(self):
+        return self.unpause_thread()
 
     def stopped(self):
         return self._stop_event.isSet()

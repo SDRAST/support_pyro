@@ -1,7 +1,7 @@
 import unittest
 import time
 
-from pyro4_zmq.event_emitter import EventEmitter
+from support_pyro.support_pyro4.util.event_emitter import EventEmitter
 
 class TestEventEmitter(unittest.TestCase):
 

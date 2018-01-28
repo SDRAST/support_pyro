@@ -42,8 +42,6 @@ class PublisherThread(PausableThread):
         self.event_emitter.emit("unpause")
         return super(PublisherThread, self).unpause_thread()
 
-
-
 class Publisher(object):
     """
     Publisher base class. The publish method is meant to be

@@ -5,7 +5,9 @@ import time
 import Pyro4
 import zmq
 
+from ..pyro4_server import Pyro4Server
 from ..util import PausableThread, EventEmitter
+from ..async import async_method
 
 __all__ = ["PublisherThread", "Publisher"]
 
@@ -42,26 +44,28 @@ class PublisherThread(PausableThread):
         self.event_emitter.emit("unpause")
         return super(PublisherThread, self).unpause_thread()
 
-class Publisher(object):
+class Publisher(Pyro4Server):
     """
     Publisher base class. The publish method is meant to be
     reimplemented in child classes.
     """
-    def __init__(self, serializer=Pyro4.config.SERIALIZER):
-
+    def __init__(self, *args, **kwargs):
         self._context = zmq.Context.instance()
         self._socket = None
         self._lock = threading.Lock()
-        self.publisher_thread = None
-        self._serializer_name = serializer
-        self._serializer = Pyro4.util.get_serializer(serializer)
+        self._publisher_thread = None
+        self._serializer_name = kwargs.pop("serializer", Pyro4.config.SERIALIZER)
+        self._serializer = Pyro4.util.get_serializer(self._serializer_name)
+        super(Publisher, self).__init__(*args,**kwargs)
 
     def publish(self):
         """
+        Reimplement this in order to call a method
         """
         raise NotImplementedError
 
-    def start_publishing(self, host="localhost", port=9091, callback=None, threaded=True):
+    @async_method
+    def start_publishing(self, host="localhost", port=9091, threaded=True):
         """
         Start publishing. This can either be called server side or client side.
         Keyword Args:
@@ -79,34 +83,41 @@ class Publisher(object):
         self._socket = socket
 
         if threaded:
-            self.publisher_thread = PublisherThread(target=publisher)
-            self.publisher_thread.daemon = True
-            self.publisher_thread.start()
+            self._publisher_thread = PublisherThread(target=publisher)
+            self._publisher_thread.daemon = True
+            self._publisher_thread.start()
         else:
             while True:
                 publisher()
-        if callback is not None:
-            callback(self)
+        msg = "publishing started"
+        self.start_publishing.cb(msg)
 
+    @async_method
     def pause_publishing(self):
-
-        if self.publisher_thread is not None:
+        if self._publisher_thread is not None:
             with self._lock:
-                self.publisher_thread.pause()
+                self._publisher_thread.pause()
+        msg = "publishing paused"
+        self.start_publishing.cb(msg)
 
+    @async_method
     def unpause_publishing(self):
-
-        if self.publisher_thread is not None:
+        if self._publisher_thread is not None:
             with self._lock:
-                self.publisher_thread.unpause()
+                self._publisher_thread.unpause()
+        msg = "publishing unpaused"
+        self.start_publishing.cb(msg)
 
+    @async_method
     def stop_publishing(self):
-
-        if self.publisher_thread is not None:
+        if self._publisher_thread is not None:
             with self._lock:
-                self.publisher_thread.stop()
-            self.publisher_thread.join()
-            self.publisher_thread = None
+                self._publisher_thread.stop()
+            self._publisher_thread.join()
+            self._publisher_thread = None
         if self._socket is not None:
             self._socket.close()
             self._socket = None
+
+        msg = "publishing stopped"
+        self.start_publishing.cb(msg)

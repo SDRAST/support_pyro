@@ -26,14 +26,11 @@ class TestPublisher(unittest.TestCase):
             on_publish.called = True
             on_publish.count += 1
 
-        def on_start(publisher):
-            pass
-
         on_publish.count = 0
         on_publish.called = False
 
         self.publisher.event_emitter.on("publish", on_publish)
-        self.publisher.start_publishing(callback=on_start)
+        self.publisher.start_publishing()
 
         while not on_publish.called:
             pass
@@ -63,7 +60,7 @@ class TestPublisher(unittest.TestCase):
         on_stop.called = False
 
         self.publisher.start_publishing()
-        self.publisher.publisher_thread.event_emitter.on("stop", on_stop)
+        self.publisher._publisher_thread.event_emitter.on("stop", on_stop)
         self.publisher.stop_publishing()
 
         while not on_stop.called:

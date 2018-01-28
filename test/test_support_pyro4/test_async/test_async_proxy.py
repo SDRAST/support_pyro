@@ -142,6 +142,20 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
         self.assertTrue(handler.__name__ == fn.__name__)
         self.assertTrue(res == (5,6))
 
+    def test_lookup_function_or_method(self):
+
+        self.proxy.register(self.callback)
+        res = self.proxy.lookup_function_or_method(self.callback)
+        self.assertTrue(res["method"] == self.callback.__name__)
+
+    def test_wait_for_callback(self):
+
+        self.proxy.register(self.callback)
+        obj, _ = self.proxy.lookup(self.callback)
+        obj.callback("hello")
+        self.proxy.wait_for_callback(self.callback)
+
+
 if __name__ == "__main__":
     setup_logging(logLevel=logging.INFO)
     unittest.main()

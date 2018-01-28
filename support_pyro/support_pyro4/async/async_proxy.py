@@ -71,16 +71,10 @@ class AsyncProxy(Pyro4.core.Proxy):
 
         if callback is not None:
             callback_dict = {}
-            if isinstance(callback,str):
-                # attempt to find the callback in the global context
-                callback_obj = globals()[callback]
-                method_name = callback
-            elif inspect.ismethod(callback):
-                callback_obj = callback.im_self
-                method_name = callback.__name__
-            elif inspect.isfunction(callback):
-                callback_obj = callback
-                method_name = callback.__name__
+
+            res = self.lookup_function_or_method(callback)
+            callback_obj = res["obj"]
+            method_name = res["method"]
 
             module_logger.debug("_pyroInvoke: calling register")
             obj, _ = self.register(callback_obj)[0]
@@ -170,6 +164,25 @@ class AsyncProxy(Pyro4.core.Proxy):
                 if obj.__class__ is fn_or_obj.__class__:
                     return obj, objectId
 
+    def lookup_function_or_method(self, callback):
+        """
+        Given some string (corresponding to a function in the global scope),
+        a function object, or a method, return the corresponding registered
+        object.
+        """
+        if isinstance(callback,str):
+            # attempt to find the callback in the global context
+            callback_obj = globals()[callback]
+            method_name = callback
+        elif inspect.ismethod(callback):
+            callback_obj = callback.im_self
+            method_name = callback.__name__
+        elif inspect.isfunction(callback):
+            callback_obj = callback
+            method_name = callback.__name__
+
+        return {"obj":callback_obj, "method":method_name}
+
     def unregister(self, fn_or_obj):
         """
         Remove an object from self._asyncHandlers and the _daemon attribute
@@ -192,6 +205,26 @@ class AsyncProxy(Pyro4.core.Proxy):
                     "unregister: Didn't unregister object {} from daemon".format(obj)
                 )
 
+
+    def wait_for_callback(self, callback):
+        """
+        Given some callback registered with the AsnycProxy to be called.
+        If there are any return values from the callback, return those.
+        Args:
+            callback (callable/str):
+        Returns:
+            None
+        """
+        res = self.lookup_function_or_method(callback)
+        obj, _ = self.lookup(res["obj"])
+        callback = getattr(obj, res["method"])
+
+        while not callback._called:
+            pass
+
+        callback._called = False
+        return callback._res
+
     @staticmethod
     def create_handler_class(fn):
         """
@@ -201,10 +234,16 @@ class AsyncProxy(Pyro4.core.Proxy):
         """
         assert inspect.isfunction(fn), "{} should be of type function, not {}".format(fn, type(fn))
         module_logger.debug("AsyncProxy.create_handler_class: Creating handler class for function {}".format(fn))
+
         @functools.wraps(fn)
         def fn_wrapper(self, *args, **kwargs):
-            return fn(*args, **kwargs)
+            res = fn(*args, **kwargs)
+            fn_wrapper._res = res
+            fn_wrapper._called = True
+            return res
 
+        fn_wrapper._called = False
+        fn_wrapper._res = None
         exposed_wrapper = Pyro4.expose(fn_wrapper)
 
         class Handler(object):

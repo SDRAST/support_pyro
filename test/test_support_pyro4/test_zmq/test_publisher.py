@@ -3,8 +3,8 @@ import logging
 import time
 import random
 
-from pyro4_zmq.publisher import Publisher
-from pyro4_zmq.event_emitter import EventEmitter
+from support_pyro.support_pyro4.zmq import Publisher
+from support_pyro.support_pyro4.util import EventEmitter
 
 class TestPublisherImplementation(Publisher):
 
@@ -38,6 +38,10 @@ class TestPublisher(unittest.TestCase):
 
     def tearDown(self):
         self.publisher.stop_publishing()
+
+
+    def test_serializer(self):
+        pass
 
     def test_start_publishing(self):
 

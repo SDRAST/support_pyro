@@ -167,8 +167,6 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
         res = self.proxy.wait_for_callback(client.callback)
         self.assertTrue(res == "hello")
 
-
-
 if __name__ == "__main__":
     setup_logging(logLevel=logging.INFO)
     unittest.main()

@@ -1,9 +1,8 @@
 import threading
 import sys
 import time
-import json
 
-import serpent
+import Pyro4
 import zmq
 
 from .util import PausableThread
@@ -31,13 +30,13 @@ class Publisher(object):
     Publisher base class. The publish method is meant to be
     reimplemented in child classes.
     """
-    def __init__(self, serializer=json):
+    def __init__(self, serializer=Pyro4.config.SERIALIZER):
 
         self._context = zmq.Context.instance()
         self._socket = None
         self._lock = threading.Lock()
         self.publisher_thread = None
-        self._serializer = serializer
+        self._serializer = Pyro4.util.get_serializer(serializer)
 
     def publish(self):
         """
@@ -46,6 +45,9 @@ class Publisher(object):
 
     def start_publishing(self, host="localhost", port=9091, callback=None, threaded=True):
         """
+        Start publishing. This can either be called server side or client side.
+        Keyword Args:
+
         """
         socket = self._context.socket(zmq.PUB)
 

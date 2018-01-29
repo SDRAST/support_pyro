@@ -77,6 +77,7 @@ class Subscriber(object):
             return subscriber_thread
 
         if res is not None:
+            self.emitter.emit("start")
             self.logger.debug("start_subscribing: res: {}".format(res))
             address = res["address"]
             if self.subscribing_started:
@@ -90,12 +91,14 @@ class Subscriber(object):
 
     def pause_subscribing(self):
         self.logger.debug("pause_subscribing: called.")
+        self.emitter.emit("pause")
         if self.subscriber_thread is not None:
             self.subscribing_paused = True
             self.subscriber_thread.pause()
 
     def unpause_subscribing(self):
         self.logger.debug("unpause_subscribing: called.")
+        self.emitter.emit("unpause")
         if self.subscriber_thread is not None:
             self.subscribing_paused = False
             self.subscriber_thread.unpause()
@@ -104,6 +107,7 @@ class Subscriber(object):
         self.logger.debug("stop_subscribing: called.")
         self.subscribing_stopped = True
         self.subscribing_started = False
+        self.emitter.emit("stop")
         if self.subscriber_thread is not None:
             self.subscriber_thread.stop()
             self.subscriber_thread.join()
@@ -112,6 +116,7 @@ class Subscriber(object):
     def _consume_msg(self, msg):
         """Deserialize the message from server and ship off to self.consume"""
         res = self.serializer.loads(msg)
+        self.emitter.emit("consume", res)
         self.consume(res)
         return res
 

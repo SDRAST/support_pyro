@@ -9,21 +9,16 @@ from ... import setup_logging
 class TestSubscriber(test_case_with_server(TestPublisherImplementation)):
 
     def setUp(self):
-        # logger = logging.getLogger("Subscriber")
-        self.proxy = TestSubscriberImplementation(self.uri,logger=None)
+        self.proxy = TestSubscriberImplementation(self.uri)
         class Handler(object):
             def __init__(self):
                 self.called = False
-
             def __call__(self, res):
-                # print("Handler.__call__: {}".format(res))
                 self.called = True
-                # print("Handler.__call__: {}".format(self.called))
                 return res
-
         self.handler = Handler()
         self.proxy.emitter.on("consume", self.handler)
-
+        
     def test_start_subscribing(self):
         self.proxy.start_subscribing()
         while not self.handler.called:

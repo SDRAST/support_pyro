@@ -41,9 +41,10 @@ class SubscriberThread(PausableThread):
             self.logger.debug("run: got {} from socket".format(res))
             self.callback(res)
 
-class Subscriber(object):
+class Subscriber(EventEmitter):
 
     def __init__(self, uri, logger=None):
+        super(Subscriber, self).__init__()
         self.proxy = AsyncProxy(uri)
         self.proxy.register(self)
         self.context = zmq.Context.instance()
@@ -53,7 +54,6 @@ class Subscriber(object):
         self.subscribing_paused = False
         self.serializer_name = self.proxy.serializer_name
         self.serializer = self.proxy.serializer
-        self.emitter = EventEmitter()
         if logger is None: logger = logging.getLogger(module_logger.name+".Subscriber")
         self.logger = logger
 
@@ -77,7 +77,7 @@ class Subscriber(object):
             return subscriber_thread
 
         if res is not None:
-            self.emitter.emit("start")
+            self.emit("start")
             self.logger.debug("start_subscribing: res: {}".format(res))
             address = res["address"]
             if self.subscribing_started:
@@ -91,14 +91,14 @@ class Subscriber(object):
 
     def pause_subscribing(self):
         self.logger.debug("pause_subscribing: called.")
-        self.emitter.emit("pause")
+        self.emit("pause")
         if self.subscriber_thread is not None:
             self.subscribing_paused = True
             self.subscriber_thread.pause()
 
     def unpause_subscribing(self):
         self.logger.debug("unpause_subscribing: called.")
-        self.emitter.emit("unpause")
+        self.emit("unpause")
         if self.subscriber_thread is not None:
             self.subscribing_paused = False
             self.subscriber_thread.unpause()
@@ -107,7 +107,7 @@ class Subscriber(object):
         self.logger.debug("stop_subscribing: called.")
         self.subscribing_stopped = True
         self.subscribing_started = False
-        self.emitter.emit("stop")
+        self.emit("stop")
         if self.subscriber_thread is not None:
             self.subscriber_thread.stop()
             self.subscriber_thread.join()
@@ -116,7 +116,7 @@ class Subscriber(object):
     def _consume_msg(self, msg):
         """Deserialize the message from server and ship off to self.consume"""
         res = self.serializer.loads(msg)
-        self.emitter.emit("consume", res)
+        self.emit("consume", res)
         self.consume(res)
         return res
 

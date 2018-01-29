@@ -1,5 +1,5 @@
 ## support_pyro
-### Version 1.3.0a
+### Version 2.0.0a
 
 Pyro4 server and client.
 
@@ -9,6 +9,8 @@ Pyro4 server and client.
 - Pyro4
 
 ### Usage
+
+#### `Pyro4Server`
 
 The recommended usage is to subclass `pyro_support.Pyro4Server`.
 
@@ -54,13 +56,17 @@ Wow, what a cool method!
 me@local:/path/to/new_cool_client$
 ```
 
+#### async
+
+Coming soon.
+
+#### zmq
+
+Coming soon.
+
 ### Installation
 
-Run `install.sh -i`. If you're running outside of a virtual environment,
-the script will prompt you, asking if you want to continue. You'll also probably
-have to use `sudo`.
-
-To uninstall, run `install.sh -u`
+Coming soon.
 
 ### Testing
 

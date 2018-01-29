@@ -40,5 +40,5 @@ class TestPublisherImplementation(Publisher):
 class TestSubscriberImplementation(Subscriber):
 
     def consume(self, res):
-        self.emitter.emit("consume", res)
+        # self.emit("consume", res)
         return res

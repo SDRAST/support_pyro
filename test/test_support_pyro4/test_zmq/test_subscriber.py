@@ -17,8 +17,8 @@ class TestSubscriber(test_case_with_server(TestPublisherImplementation)):
                 self.called = True
                 return res
         self.handler = Handler()
-        self.proxy.emitter.on("consume", self.handler)
-        
+        self.proxy.on("consume", self.handler)
+
     def test_start_subscribing(self):
         self.proxy.start_subscribing()
         while not self.handler.called:

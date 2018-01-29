@@ -238,6 +238,9 @@ class EventEmitter(object):
             if event_name in self.__handlers:
                 for handler in self.__handlers[event_name]:
                     with self._lock:
+                        module_logger.debug(
+                            "Emitting handler {} for event {}".format(handler,event_name)
+                        )
                         handler(*args, **kwargs)
 
         if self.threaded:

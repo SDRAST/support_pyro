@@ -11,7 +11,7 @@ class TestPublisherImplementation(Publisher):
     #     super(TestPublisherImplementation, self).__init__(*args, **kwargs)
 
     def publish(self):
-        time.sleep(0.1)
+        time.sleep(1.0)
         res = {"something random":random.random()}
         self.emitter.emit("publish",res)
         return res

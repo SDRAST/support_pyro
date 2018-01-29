@@ -1,4 +1,6 @@
 import sys
+import logging
+
 import zmq
 import Pyro4
 
@@ -7,6 +9,8 @@ from ..async.async_proxy import AsyncProxy
 from ..util import iterative_run, PausableThread, EventEmitter
 
 __all__ = ["Subscriber"]
+
+module_logger = logging.getLogger(__name__)
 
 class SubscriberThread(PausableThread):
 
@@ -24,19 +28,24 @@ class SubscriberThread(PausableThread):
         else:
             callback = self._target
         self.callback = callback
+        self.logger.debug("__init__: creating socket and connecting to address: {}".format(self.address))
         self.socket = self.context.socket(zmq.SUB)
+        self.socket.setsockopt(zmq.SUBSCRIBE,"")
         self.socket.connect(self.address)
 
     @iterative_run
     def run(self):
         if not self.socket.closed:
+            self.logger.debug("run: calling socket.recv")
             res = self.socket.recv()
+            self.logger.debug("run: got {} from socket".format(res))
             self.callback(res)
 
 class Subscriber(object):
 
-    def __init__(self, uri):
+    def __init__(self, uri, logger=None):
         self.proxy = AsyncProxy(uri)
+        self.proxy.register(self)
         self.context = zmq.Context.instance()
         self.subscriber_thread = None
         self.subscribing_started = False
@@ -45,14 +54,17 @@ class Subscriber(object):
         self.serializer_name = self.proxy.serializer_name
         self.serializer = self.proxy.serializer
         self.emitter = EventEmitter()
+        if logger is None: logger = logging.getLogger(module_logger.name+".Subscriber")
+        self.logger = logger
 
     def __getattr__(self, attr):
         return getattr(self.proxy, attr)
 
     @async_callback
     def start_subscribing(self,res=None):
-
+        self.logger.debug("start_subscribing: called.")
         def subscriber_thread_factory(address):
+            self.logger.debug("start_subscribing.subscriber_thread_factory: address {}".format(address))
             host, port = address.split(":")
             if host == "*":
                 host = "localhost"
@@ -65,6 +77,7 @@ class Subscriber(object):
             return subscriber_thread
 
         if res is not None:
+            self.logger.debug("start_subscribing: res: {}".format(res))
             address = res["address"]
             if self.subscribing_started:
                 return
@@ -76,16 +89,19 @@ class Subscriber(object):
             self.proxy.start_publishing(callback=self.start_subscribing)
 
     def pause_subscribing(self):
+        self.logger.debug("pause_subscribing: called.")
         if self.subscriber_thread is not None:
             self.subscribing_paused = True
             self.subscriber_thread.pause()
 
     def unpause_subscribing(self):
+        self.logger.debug("unpause_subscribing: called.")
         if self.subscriber_thread is not None:
             self.subscribing_paused = False
             self.subscriber_thread.unpause()
 
     def stop_subscribing(self):
+        self.logger.debug("stop_subscribing: called.")
         self.subscribing_stopped = True
         self.subscribing_started = False
         if self.subscriber_thread is not None:

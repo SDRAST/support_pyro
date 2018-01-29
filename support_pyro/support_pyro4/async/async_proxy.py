@@ -15,6 +15,14 @@ module_logger.debug("from {}".format(__name__))
 class AsyncProxy(Pyro4.core.Proxy):
     """
     Proxy that has a Pyro4 Daemon attached to it that registers methods.
+    This is not meant to be subclassed directly. Instead, if you'd like to
+    access proxy methods/properties in a "Client" class, do so as follows:
+
+    class Client(object):
+        def __init__(self, uri):
+            self.proxy = AsyncProxy(uri)
+        def __getattr__(self, attr):
+            return getattr(self.proxy, attr)
     """
     __asyncAttributes = frozenset(
         ["_daemon","_daemon_thread","_asyncHandlers"]
@@ -63,25 +71,26 @@ class AsyncProxy(Pyro4.core.Proxy):
         self._asyncHandler attribute.
         """
         module_logger.debug("_pyroInvoke: Called. methodname: {}, vargs: {}, kwargs: {}".format(methodname, vargs, kwargs))
-        callback = None
-        for key in ["callback", "cb_info", "cb"]:
-            if key in kwargs:
-                callback = kwargs.pop(key)
-                break
+        if kwargs is not None:
+            callback = None
+            for key in ["callback", "cb_info", "cb"]:
+                if key in kwargs:
+                    callback = kwargs.pop(key)
+                    break
 
-        if callback is not None:
-            callback_dict = {}
+            if callback is not None:
+                callback_dict = {}
 
-            res = self.lookup_function_or_method(callback)
-            callback_obj = res["obj"]
-            method_name = res["method"]
+                res = self.lookup_function_or_method(callback)
+                callback_obj = res["obj"]
+                method_name = res["method"]
 
-            module_logger.debug("_pyroInvoke: calling register")
-            obj, _ = self.register(callback_obj)[0]
-            self.register_handlers_with_daemon()
-            callback_dict["cb_handler"] = obj
-            callback_dict["cb"] = method_name
-            kwargs["cb_info"] = callback_dict
+                module_logger.debug("_pyroInvoke: calling register")
+                obj, _ = self.register(callback_obj)[0]
+                self.register_handlers_with_daemon()
+                callback_dict["cb_handler"] = obj
+                callback_dict["cb"] = method_name
+                kwargs["cb_info"] = callback_dict
 
         module_logger.debug("_pyroInvoke: calling super, kwargs: {}".format(kwargs))
         resp = super(AsyncProxy, self)._pyroInvoke(methodname,

@@ -16,15 +16,13 @@ def iterative_run(run_fn):
     """
     A decorator for running functions repeatedly inside a PausableThread.
     Allows one to pause and stop the thread while its repeatedly calling
-    the overriden run function.
+    the overridden run function.
     Args:
         run_fn: the overridden run function from PausableThread
-
     Returns:
-
+        callable: wrapped function
     """
     def wrapper(self):
-
         while True:
             if self.stopped():
                 break
@@ -35,9 +33,7 @@ def iterative_run(run_fn):
                 self._running_event.set()
                 run_fn(self)
                 self._running_event.clear()
-
     return wrapper
-
 
 class Pause(object):
     """
@@ -185,27 +181,21 @@ class PausableThreadCallback(threading.Thread):
                 self._running.clear()
 
     def stop_thread(self):
-
         self._stop_event.set()
 
     def pause_thread(self):
-
         self._pause_event.set()
 
     def unpause_thread(self):
-
         self._pause_event.clear()
 
     def stopped(self):
-
         return self._stop_event.isSet()
 
     def paused(self):
-
         return self._pause_event.isSet()
 
     def running(self):
-
         return self._running_event.isSet()
 
 def blocking(func):
@@ -238,7 +228,8 @@ def non_blocking(func):
 
 class EventEmitter(object):
 
-    def __init__(self):
+    def __init__(self, threaded=True):
+        self.threaded = threaded
         self._lock = threading.Lock()
         self.__handlers = {}
 
@@ -249,9 +240,12 @@ class EventEmitter(object):
                     with self._lock:
                         handler(*args, **kwargs)
 
-        t = threading.Thread(target=emitter)
-        t.daemon = True
-        t.start()
+        if self.threaded:
+            t = threading.Thread(target=emitter)
+            t.daemon = True
+            t.start()
+        else:
+            emitter()
 
     def on(self, event_name, callback):
         with self._lock:

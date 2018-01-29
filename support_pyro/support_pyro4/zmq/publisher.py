@@ -5,9 +5,10 @@ import time
 import Pyro4
 import zmq
 
-from ..pyro4_server import Pyro4Server
-from ..util import PausableThread, EventEmitter
+from ..pyro4_server import Pyro4Server, config
+from ..util import PausableThread, EventEmitter, iterative_run
 from ..async import async_method
+from .util import SocketSafetyWrapper
 
 __all__ = ["PublisherThread", "Publisher"]
 
@@ -16,21 +17,14 @@ class PublisherThread(PausableThread):
     def __init__(self, *args, **kwargs):
         super(PublisherThread, self).__init__(*args, **kwargs)
         self.event_emitter = EventEmitter()
+        self.logger.debug("__init__: current thread: {}".format(threading.current_thread()))
 
+    @iterative_run
     def run(self):
-        while True:
-            if self.stopped():
-                break
-            if self.paused():
-                time.sleep(0.001)
-                continue
-            else:
-                self._running_event.set()
-                if sys.version_info[0] == 2:
-                    self._Thread__target(*self._Thread__args, **self._Thread__kwargs)
-                else:
-                    self._target(*self._args, **self._kwargs)
-                self._running_event.clear()
+        if sys.version_info[0] == 2:
+            self._Thread__target(*self._Thread__args, **self._Thread__kwargs)
+        else:
+            self._target(*self._args, **self._kwargs)
 
     def stop_thread(self):
         self.event_emitter.emit("stop")
@@ -44,6 +38,40 @@ class PublisherThread(PausableThread):
         self.event_emitter.emit("unpause")
         return super(PublisherThread, self).unpause_thread()
 
+class ContextualizedPublisherThread(PublisherThread):
+
+    def __init__(self, context, serializer, host="localhost", port=0, **kwargs):
+        super(ContextualizedPublisherThread, self).__init__(**kwargs)
+        self.context = context
+        if sys.version_info[0] == 2:
+            callback = self._Thread__target
+        else:
+            callback = self._target
+        self.callback = callback
+        self.serializer = serializer
+        if host == "localhost":
+            host = "*"
+        self.host = host
+        if port == 0:
+            port = Pyro4.socketutil.findProbablyUnusedPort()
+        self.port = port
+        self.address = "tcp://{}:{}".format(self.host, self.port)
+        self.socket = self.context.socket(zmq.PUB)
+        self.socket.bind(self.address)
+
+    @iterative_run
+    def run(self):
+        res = self.callback()
+        if not self.socket.closed:
+            self.socket.send(self.serializer.dumps(res))
+
+    def stop_thread(self):
+        res = super(ContextualizedPublisherThread, self).stop_thread()
+        if self.socket is not None:
+            self.socket.close()
+        return res
+
+@config.expose
 class Publisher(Pyro4Server):
     """
     Publisher base class. The publish method is meant to be
@@ -51,44 +79,30 @@ class Publisher(Pyro4Server):
     """
     def __init__(self, *args, **kwargs):
         self._context = zmq.Context.instance()
-        self._socket = None
         self._lock = threading.Lock()
         self._publisher_thread = None
         self._serializer_name = kwargs.pop("serializer", Pyro4.config.SERIALIZER)
         self._serializer = Pyro4.util.get_serializer(self._serializer_name)
         super(Publisher, self).__init__(*args,**kwargs)
 
-    def publish(self):
-        """
-        Reimplement this in order to call a method
-        """
-        raise NotImplementedError
+    @property
+    def serializer_name(self):
+        return self._serializer_name
+
+    @property
+    def serializer(self):
+        return self._serializer
 
     @async_method
-    def start_publishing(self, host="localhost", port=9091, threaded=True):
+    def start_publishing(self, host="localhost", port=0):
         """
         Start publishing. This can either be called server side or client side.
         Keyword Args:
-
         """
-        socket = self._context.socket(zmq.PUB)
-
-        def publisher():
-            results = self.publish()
-            socket.send(self._serializer.dumps(results))
-
-        if host == "localhost":
-            host = "*"
-        socket.bind("tcp://{}:{}".format(host, port))
-        self._socket = socket
-
-        if threaded:
-            self._publisher_thread = PublisherThread(target=publisher)
-            self._publisher_thread.daemon = True
-            self._publisher_thread.start()
-        else:
-            while True:
-                publisher()
+        self._publisher_thread = ContextualizedPublisherThread(
+                self._context, self._serializer, target=self.publish
+        )
+        self._publisher_thread.start()
         msg = "publishing started"
         self.start_publishing.cb(msg)
 
@@ -115,9 +129,11 @@ class Publisher(Pyro4Server):
                 self._publisher_thread.stop()
             self._publisher_thread.join()
             self._publisher_thread = None
-        if self._socket is not None:
-            self._socket.close()
-            self._socket = None
-
         msg = "publishing stopped"
-        self.start_publishing.cb(msg)
+        self.stop_publishing.cb(msg)
+
+    def publish(self):
+        """
+        Reimplement this in order to call a method
+        """
+        raise NotImplementedError

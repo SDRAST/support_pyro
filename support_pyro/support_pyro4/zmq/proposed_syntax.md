@@ -19,26 +19,34 @@ import time
 
 import Pyro4
 
-from pyro4_zmq import Publisher
+from support_pyro.support_pyro4.zmq.publisher import Publisher
+from support_pyro.support_pyro4.async import async_method
+from support_pyro.support_pyro4 import config
 
-@Pyro4.expose
 class ExamplePublisher(Publisher):
+
     def publish(self):
         data = {"some_key":"some_value"}
         self.emit(data)
         time.sleep(1.0)
 
+    @async_method
+    def square_async(self, x):
+        self.square.cb(x**2)
+
+    @config.expose
     def square(self, x):
         return x**2
 
 if __name__ == "__main__":
     server = ExamplePublisher()
+    server.launch_server(local=True, ns_port=9090,threaded=False)
+    # OR
     with Pyro4.Daemon() as daemon:
         uri = daemon.register(server)
-        ns = Pyro4.locateNS()
-        ns.register("ExamplePublisher", uri)
-        daemon.requestLoop()
-
+        with Pyro4.locateNS() as ns:
+            ns.register("ExamplePublisher", uri)
+            daemon.requestLoop()
 ```
 
 
@@ -50,23 +58,22 @@ import threading
 
 import Pyro4
 
-from pyro4_zmq import Subscriber
+from support_pyro.support_pyro4.zmq.subscriber import Subscriber
 
 class ExampleSubscriber(Subscriber):
 
     def consume(self, data):
-        print(data["some_key"])
+        print("from consume method: {}".format(data))
+
+def handler(data):
+    print("from handler: {}".format(data))
 
 if __name__ == "__main__":
     ns = Pyro4.locateNS()
     uri = ns.lookup("ExamplePublisher")
-    client = Pyro4.Proxy(uri)
-    client.start_publishing() # we could do this server side as well
-    subscriber = ExampleSubscriber(client)
-    t = threading.Thread(target=subscriber.start_subscribing)
-    t.daemon = True
-    t.start()
-    print(subscriber.square(2))
+    sub = ExampleSubscriber(uri)
+    sub.on("consume", handler)
+    sub.start_subscribing() # this will automatically call start_publishing if not already called.
 ```
 
 subscriber.js

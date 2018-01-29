@@ -122,4 +122,4 @@ class Subscriber(EventEmitter):
 
     def consume(self, res):
         """Meant to be reimplemented in child subclass"""
-        raise NotImplementedError
+        return res

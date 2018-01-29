@@ -25,25 +25,20 @@ class TestSubscriber(test_case_with_server(TestPublisherImplementation)):
             pass
         self.assertTrue(self.handler.called)
 
-    @unittest.skip("")
     def test_pause_subscribing(self):
         self.proxy.pause_subscribing()
 
-    @unittest.skip("")
     def test_unpause_subscribing(self):
         self.proxy.unpause_subscribing()
 
-    @unittest.skip("")
     def test_stop_subscribing(self):
         self.proxy.stop_subscribing()
 
-    @unittest.skip("")
     def test_consume(self):
         res = self.proxy.consume("hello")
         print("test_consume: {}".format(self.handler.called))
         self.assertTrue(res == "hello")
 
-    @unittest.skip("")
     def test_consume_msg(self):
         serializer = self.server._serializer
         res = self.server.publish()

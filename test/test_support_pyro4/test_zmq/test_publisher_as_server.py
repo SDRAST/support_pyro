@@ -17,28 +17,39 @@ class TestPublisherAsServer(test_case_with_server(
         self.handler = handler
 
     def tearDown(self):
-        pass
+        self.proxy.stop_publishing()
 
     def test_start_publishing(self):
         self.proxy.start_publishing(callback=self.handler)
         res = self.proxy.wait_for_callback(self.handler)
-        self.assertTrue(res == "publishing started")
-        self.proxy.stop_publishing()
+        self.assertTrue(res["status"] == "publishing started")
 
+    def test_start_paused_publisher(self):
+        def final_handler(res):
+            return res
+        def pause_handler(res):
+            self.proxy.start_publishing(callback=final_handler)
+        def start_handler(res):
+            self.proxy.pause_publishing(callback=pause_handler)
+        self.proxy.register(pause_handler)
+        self.proxy.register(final_handler)
+        self.proxy.start_publishing(callback=start_handler)
+        res = self.proxy.wait_for_callback(final_handler)
+        self.assertTrue(res["status"] == "publishing unpaused")
+        
     def test_pause_publishing(self):
         self.proxy.start_publishing(callback=self.handler)
         self.proxy.wait_for_callback(self.handler)
         self.proxy.pause_publishing(callback=self.handler)
         res = self.proxy.wait_for_callback(self.handler)
-        self.assertTrue(res == "publishing paused")
-        self.proxy.stop_publishing()
+        self.assertTrue(res["status"] == "publishing paused")
 
     def test_stop_publishing(self):
         def stop_handler(res): return res
         self.proxy.start_publishing(callback=self.handler)
         self.proxy.stop_publishing(callback=stop_handler)
         res = self.proxy.wait_for_callback(stop_handler)
-        self.assertTrue(res=="publishing stopped")
+        self.assertTrue(res["status"]=="publishing stopped")
 
     def test_get_serializer(self):
         serializer = self.proxy.serializer

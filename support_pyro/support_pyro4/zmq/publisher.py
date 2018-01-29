@@ -8,9 +8,8 @@ import zmq
 from ..pyro4_server import Pyro4Server, config
 from ..util import PausableThread, EventEmitter, iterative_run
 from ..async import async_method
-from .util import SocketSafetyWrapper
 
-__all__ = ["PublisherThread", "Publisher"]
+__all__ = ["Publisher"]
 
 class PublisherThread(PausableThread):
 
@@ -78,12 +77,34 @@ class Publisher(Pyro4Server):
     reimplemented in child classes.
     """
     def __init__(self, *args, **kwargs):
-        self._context = zmq.Context.instance()
-        self._lock = threading.Lock()
-        self._publisher_thread = None
+        self.context = zmq.Context.instance()
+        self.lock = threading.Lock()
+        self.publisher_thread = None
+        self.emitter = EventEmitter()
         self._serializer_name = kwargs.pop("serializer", Pyro4.config.SERIALIZER)
         self._serializer = Pyro4.util.get_serializer(self._serializer_name)
+        self._publishing_started = False
+        self._publishing_stopped = True
+        self._publishing_paused = False
+        self._publishing_address = None
+        self.emitter = EventEmitter()
         super(Publisher, self).__init__(*args,**kwargs)
+
+    @property
+    def publishing_started(self):
+        return self._publishing_started
+
+    @property
+    def publishing_stopped(self):
+        return self._publishing_stopped
+
+    @property
+    def publishing_paused(self):
+        return self._publishing_paused
+
+    @property
+    def publishing_address(self):
+        return
 
     @property
     def serializer_name(self):
@@ -99,38 +120,81 @@ class Publisher(Pyro4Server):
         Start publishing. This can either be called server side or client side.
         Keyword Args:
         """
-        self._publisher_thread = ContextualizedPublisherThread(
-                self._context, self._serializer, target=self.publish
-        )
-        self._publisher_thread.start()
-        msg = "publishing started"
-        self.start_publishing.cb(msg)
+        def publisher_thread_factory(host, port):
+            publisher_thread = ContextualizedPublisherThread(
+                    self.context, self._serializer, target=self.publish,
+                    host=host, port=port
+            )
+            host = publisher_thread.host
+            port = publisher_thread.port
+            self._publishing_address = "{}:{}".format(host,port)
+            self._publishing_started = True
+            publisher_thread.start()
+            return publisher_thread
+
+        msg = {
+            "status":"publishing started",
+            "address":None
+        }
+
+        if self.publisher_thread is None:
+            self.publisher_thread = publisher_thread_factory(host, port)
+            msg["address"] = self._publishing_address
+            self.start_publishing.cb(msg)
+            return
+        else:
+            stopped = self.publisher_thread.stopped()
+            if stopped:
+                self.publisher_thread.join()
+                self.publisher_thread = publisher_thread_factory(host, port)
+                msg["address"] = self._publishing_address
+                self.start_publishing.cb(msg)
+                return
+            paused = self.publisher_thread.paused()
+            if paused:
+                return self.unpause_publishing(cb_info=self.start_publishing.cb_info)
 
     @async_method
     def pause_publishing(self):
-        if self._publisher_thread is not None:
-            with self._lock:
-                self._publisher_thread.pause()
-        msg = "publishing paused"
-        self.start_publishing.cb(msg)
+        msg = {
+            "status": "publishing paused",
+            "address": self._publishing_address
+        }
+        if self.publisher_thread is not None:
+            with self.lock:
+                self.publisher_thread.pause()
+        self._publishing_paused = True
+        self.pause_publishing.cb(msg)
 
     @async_method
     def unpause_publishing(self):
-        if self._publisher_thread is not None:
-            with self._lock:
-                self._publisher_thread.unpause()
-        msg = "publishing unpaused"
-        self.start_publishing.cb(msg)
+        msg = {
+            "status": "publishing unpaused",
+            "address": self._publishing_address
+        }
+        if self.publisher_thread is not None:
+            with self.lock:
+                self.publisher_thread.unpause()
+        self._publishing_paused = False
+        self.unpause_publishing.cb(msg)
 
     @async_method
     def stop_publishing(self):
-        if self._publisher_thread is not None:
-            with self._lock:
-                self._publisher_thread.stop()
-            self._publisher_thread.join()
-            self._publisher_thread = None
-        msg = "publishing stopped"
-        self.stop_publishing.cb(msg)
+        msg = {
+            "status": "publishing stopped",
+            "address": self._publishing_address
+        }
+        if self.publisher_thread is not None:
+            with self.lock:
+                self.publisher_thread.stop()
+            self.publisher_thread.join()
+            self.publisher_thread = None
+            self._publishing_stopped = True
+            self.stop_publishing.cb(msg)
+        else:
+            msg["status"] = "no publishing to stop"
+            msg["address"] = None
+            self.stop_publishing.cb(msg)
 
     def publish(self):
         """

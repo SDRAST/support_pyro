@@ -108,6 +108,11 @@ class TestCallbackIntegration(test_case_factory(SimpleAsyncServer)):
         while not (callbacks.called["callback1"] and callbacks.called["callback2"]):
             pass
 
+    def test_callback_integration_no_callback(self):
+        proxy = AsyncProxy("PYRO:SimpleAsyncServer@localhost:50000")
+        proxy.ping_with_response()
+
+
 if __name__ == "__main__":
     setup_logging(logLevel=logging.DEBUG)
     unittest.main()

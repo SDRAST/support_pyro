@@ -42,7 +42,7 @@ def test_case_factory(server_cls):
         def setUpClass(cls):
 
             s = server_cls()
-            d = Pyro4.Daemon(host="localhost",port=50000)
+            d = Pyro4.Daemon(host="localhost",port=55000)
             d.register(s,objectId="SimpleAsyncServer")
             t = threading.Thread(target=d.requestLoop)
             t.daemon = True

@@ -66,7 +66,12 @@ Coming soon.
 
 ### Installation
 
-Coming soon.
+This is meant to be a submodule of the RA `support` package. As a result,
+installation is a matter of installing required dependencies:
+
+```
+pip install -r requirements.txt
+```
 
 ### Testing
 

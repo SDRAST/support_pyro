@@ -1,5 +1,4 @@
 *.pyc
-*.txt
 *.log
 *.png
 *.hdf5

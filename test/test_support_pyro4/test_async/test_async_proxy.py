@@ -37,7 +37,7 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
 
         self.callback = callback
         self.Client = Client
-        proxy = AsyncProxy("PYRO:SimpleAsyncServer@localhost:50000")
+        proxy = AsyncProxy("PYRO:SimpleAsyncServer@localhost:55000")
         self.proxy = proxy
 
     def tearDown(self):
@@ -45,7 +45,7 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
         AsyncProxy._asyncHandlers = {}
 
     def test_init_full_args(self):
-        p = AsyncProxy("PYRO:SimpleAsyncServer@localhost:50000",
+        p = AsyncProxy("PYRO:SimpleAsyncServer@localhost:55000",
                                         daemon_details={"host":"localhost",
                                         "port": 50001})
         self.assertTrue(isinstance(p, AsyncProxy))
@@ -56,7 +56,7 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
     def test_init_with_prexisting_daemon(self):
         self.proxy._daemon.shutdown()
         daemon = Pyro4.Daemon(port=50001,host="localhost")
-        p = AsyncProxy("PYRO:SimpleAsyncServer@localhost:50000",
+        p = AsyncProxy("PYRO:SimpleAsyncServer@localhost:55000",
                                             daemon_details={"daemon":daemon})
         self.assertTrue(p._daemon.locationStr == "localhost:50001")
         p._daemon.shutdown()

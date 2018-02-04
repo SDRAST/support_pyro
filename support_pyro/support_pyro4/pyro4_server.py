@@ -121,13 +121,26 @@ class Pyro4Server(object):
         finally:
             os.kill(os.getpid(), signal.SIGKILL)
 
+    def launch_daemon(self, remote_server_name="localhost",
+                            remote_port=22,
+                            remote_username=None,
+                            object_port=0,
+                            object_id=None,
+                            local=True):
+        """
+        Create a daemon for this object, and call it's requestLoop. This works
+        independently of a nameserver.
+        """
+        self.tunnel = Pyro4Tunnel()
+
+
     def launch_server(self, remote_server_name='localhost',
                             remote_port=22,
                             remote_username=None,
                             ns_host='localhost',
                             ns_port=9090,
-                            obj_port=0,
-                            objectId=None,
+                            object_port=0,
+                            object_id=None,
                             local=True,
                             local_forwarding_port=None,
                             threaded=False,
@@ -135,6 +148,20 @@ class Pyro4Server(object):
         """
         Launch server, remotely or locally. Assumes there is a nameserver registered on
         ns_host/ns_port.
+
+        Note that the object_id parameter is not in keeping with Pyro4's
+        parameter naming scheme. Irmen uses camel case "objectId" and I'm using
+        "object_id". The latter I think better aligns with how I've been naming
+        parameters in this code base.
+
+        Usage:
+            s = Pyro4Server()
+            s.launch_server(local=True, ns_port=9090,
+                            ns_host="localhost",object_port=9091,
+                            object_id=None, threaded=True)
+            # now do other stuff.
+
+
         Keyword Args:
             remote_server_name (str): The host of remote server ("localhost")
                 Note that even if this is "localhost" this does not mean
@@ -144,7 +171,10 @@ class Pyro4Server(object):
             remote_username (str): The username on the server on which we want to register object.
             ns_host (str): The namserver host on the remote server ("localhost")
             ns_port (int): The nameserver port on the remote server (9090)
-            obj_port (int): The port on which to register object on remote nameserver (0)
+            object_port (int): The port on which to register object on remote nameserver (0)
+            object_id (str): The name to give the Daemon on the nameserver. If nothing is
+                provided, then Pyro4 will automatically generate a unique identifier for this
+                object.
             local (bool): Whether or not we're registering this object on a local name server.
                 If this is true, then we act as if we're registering an object in the normal
                 Pyro4 manner. (True)
@@ -167,9 +197,9 @@ class Pyro4Server(object):
         self.threaded = threaded
         self._local = self.tunnel.local
 
-        self.daemon = Pyro4.Daemon(port=obj_port, host=ns_host)
+        self.daemon = Pyro4.Daemon(port=object_port, host=ns_host)
         self.tunnel.register_remote_daemon(self.daemon, reverse=reverse)
-        self.server_uri = self.daemon.register(self,objectId=objectId)
+        self.server_uri = self.daemon.register(self,objectId=object_id)
         self.logger.debug("Server uri is {}".format(self.server_uri))
         self.tunnel.ns.register(self._name, self.server_uri)
         self.logger.info("{} available".format(self._name))
@@ -349,4 +379,4 @@ if __name__ == '__main__':
     # app, server = Pyro4Server.flaskify(name='TestServer', simulated=True)
     # app.run(debug=False)
     server = Pyro4Server("TestServer", simulated=True)
-    server.launch_server(local=True, ns_port=9090, obj_port=9091, obj_id="Pyro4Server.TestServer")
+    server.launch_server(local=True, ns_port=9090, object_port=9091, obj_id="Pyro4Server.TestServer")

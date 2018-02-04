@@ -1,8 +1,9 @@
 import unittest
+import threading
 
 import Pyro4
 
-from src import async
+from support_pyro.support_pyro4.async import async_method
 
 class TestAsyncDecorator(unittest.TestCase):
 
@@ -10,18 +11,17 @@ class TestAsyncDecorator(unittest.TestCase):
 
         def callback(res):
             callback.called = True
-            # print("callback: res: {}".format(res))
 
         callback.called = False
 
         class TestServer(object):
 
-            @async
+            @async_method
             def ping(self):
-                self.ping.callback("hello")
+                self.ping.cb("hello")
 
         ts = TestServer()
-        ts.ping(callback=callback)
+        ts.ping(cb_info={"cb":callback})
         self.assertTrue(callback.called)
 
     def test_async_decorator_with_daemon(self):
@@ -39,14 +39,21 @@ class TestAsyncDecorator(unittest.TestCase):
 
         cbs = CallbackServer()
         daemon = Pyro4.Daemon()
-        daemon.register(cbs)
+        uri = daemon.register(cbs)
+        t = threading.Thread(target=daemon.requestLoop)
+        t.daemon = True
+        t.start()
 
         class TestServer(object):
 
-            @async
+            @async_method
             def ping(self):
-                self.ping.callback("hello")
+                self.ping.cb("hello")
 
         ts = TestServer()
-        ts.ping(callback={"callback":"callback","handler":cbs})
+        p = Pyro4.Proxy(uri)
+        ts.ping(cb_info={"cb":"callback","cb_handler":p})
         self.assertTrue(cbs.called["callback"])
+
+if __name__ == "__main__":
+    unittest.main()

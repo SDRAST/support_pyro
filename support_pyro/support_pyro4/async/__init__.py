@@ -4,11 +4,11 @@ import functools
 import six
 import Pyro4
 
-module_logger = logging.getLogger(__name__)
-# print("from {}".format(module_logger.name))
-module_logger.debug("from {}".format(__name__))
+from .async_proxy import AsyncProxy
 
-__all__ = ["CallbackProxy", "async_method", "async_callback"]
+module_logger = logging.getLogger(__name__)
+
+__all__ = ["CallbackProxy", "async_method", "async_callback", "AsyncProxy"]
 
 class CallbackProxy(object):
     """
@@ -49,7 +49,7 @@ class CallbackProxy(object):
                             return emit_f
                         setattr(self, key, f(cb))
                     else:
-                        if self.cb_handler:
+                        if self.cb_handler is not None:
                             try:
                                 setattr(self, key, getattr(self.cb_handler, cb))
                                 setattr(self, key+"_name", cb)

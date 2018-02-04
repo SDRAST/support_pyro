@@ -7,6 +7,8 @@ import inspect
 
 import Pyro4
 
+__all__ = ["AsyncProxy"]
+
 pyro4_version_info = Pyro4.__version__.split(".")
 
 module_logger = logging.getLogger(__name__)

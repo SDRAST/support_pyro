@@ -5,7 +5,34 @@ import random
 
 import Pyro4
 
+from support_pyro.support_pyro4.zmq.publisher import PublisherThread
+
 from . import TestPublisherImplementation
+
+class TestPublisherThread(unittest.TestCase):
+
+    def setUp(self):
+        def callback(res):
+            time.sleep(0.1)
+            return res
+
+        self.callback = callback
+        self.test_thread = PublisherThread(target=self.callback, args=("hello",))
+
+    def tearDown(self):
+        self.test_thread.stop()
+        self.test_thread.join()
+
+    def test_start(self):
+        self.test_thread.start()
+        self.assertTrue(self.test_thread.running())
+
+    def test_pause(self):
+        self.test_thread.start()
+        self.test_thread.pause()
+        self.assertTrue(self.test_thread.paused())
+        self.test_thread.unpause()
+        self.assertFalse(self.test_thread.paused())
 
 class TestPublisher(unittest.TestCase):
 
@@ -26,7 +53,7 @@ class TestPublisher(unittest.TestCase):
 
         on_publish.called = False
 
-        self.publisher.event_emitter.on("publish", on_publish)
+        self.publisher.emitter.on("publish", on_publish)
         self.publisher.start_publishing()
 
         while not on_publish.called:
@@ -41,7 +68,7 @@ class TestPublisher(unittest.TestCase):
             on_pause.called = True
         on_pause.called = False
 
-        self.publisher.event_emitter.on("pause", on_pause)
+        self.publisher.emitter.on("pause", on_pause)
         self.publisher.start_publishing()
         self.publisher.pause_publishing()
 

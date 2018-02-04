@@ -2,7 +2,7 @@ import logging
 
 import Pyro4
 
-from . import __version__ as pyro_support_version
+from .. import __version__ as pyro_support_version
 
 module_logger = logging.getLogger(__name__)
 

@@ -8,8 +8,8 @@ import Pyro4.socketutil
 
 import pyro4tunneling
 
-from pyro_support.util import CallbackProxy
-from pyro_support import Pyro4Server, config
+from support_pyro.support_pyro4 import Pyro4Server, config
+from support_pyro.support_pyro4.async import CallbackProxy
 
 class TestCallbackProxy(unittest.TestCase):
 

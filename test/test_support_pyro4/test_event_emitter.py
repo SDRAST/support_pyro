@@ -1,15 +1,18 @@
 import unittest
 import time
 
-from support_pyro.support_pyro4.util.event_emitter import EventEmitter
+from support_pyro.support_pyro4.util import EventEmitter
 
 class TestEventEmitter(unittest.TestCase):
 
     def test_event(self):
 
-        def on_event():
-            on_event.called = True
-
+        class OnEvent(object):
+            def __init__(self):
+                self.called = False
+            def __call__(self):
+                self.called = True
+        on_event = OnEvent()
         eventemitter = EventEmitter()
         eventemitter.on("event", on_event)
 

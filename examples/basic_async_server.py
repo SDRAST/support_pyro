@@ -13,7 +13,7 @@ class BasicAsyncServer(object):
 
     @async_method
     def repeat(self, chars, times, delimiter=" "):
-        print("repeat called with arguments {} {} {}".format(char, times, delimiter))
+        print("repeat called with arguments {} {} {}".format(chars, times, delimiter))
         self.repeat.cb(delimiter.join([chars for i in range(times)]))
 
 def create_parser():

@@ -8,10 +8,12 @@ class BasicAsyncServer(object):
 
     @async_method
     def square(self, x):
+        print("square called with argument {}".format(x))
         self.square.cb(x**2)
 
     @async_method
     def repeat(self, chars, times, delimiter=" "):
+        print("repeat called with arguments {} {} {}".format(char, times, delimiter))
         self.repeat.cb(delimiter.join([chars for i in range(times)]))
 
 def create_parser():

@@ -9,16 +9,19 @@ import time
 import datetime
 
 import Pyro4
-try:
-    from pyro4tunneling import Pyro4Tunnel, TunnelError
-except ImportError:
-    from pyro4tunneling.pyro4tunnel import Pyro4Tunnel, TunnelError
 
+module_logger = logging.getLogger(__name__)
+
+try:
+    from support.trifeni import errors, NameServerTunnel
+    TunnelError = errors.TunnelError
+except ImportError as err:
+    module_logger.error("Can't import NameServerTunnel or TunnelError: {}".format(err))
+    class TunnelError(Pyro4.errors.CommunicationError):
+        pass
 from .configuration import config
 
 __all__ = ["Pyro4Server","Pyro4ServerError"]
-
-module_logger = logging.getLogger(__name__)
 
 class Pyro4ServerError(TunnelError):
     pass

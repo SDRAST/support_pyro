@@ -24,8 +24,8 @@ __all__ = ["Pyro4Server"]
 class Pyro4Server(object):
     """
     """
-    def __init__(self, obj=None,
-                       cls=None,
+    def __init__(self, cls=None,
+                       obj=None,
                        cls_args=None,
                        cls_kwargs=None,
                        name=None,
@@ -33,22 +33,31 @@ class Pyro4Server(object):
                        logger=None):
         """
         Keyword Args:
-
         """
         if not logger: logger = logging.getLogger(module_logger.name +
                                                 ".{}".format(self.__class__.__name__))
         self.logger = logger
+        self.logger.debug("__init__: cls: {}".format(cls))
         if obj is None and cls is None:
             msg = "Need to provide either an object or a class to __init__"
             self.logger.error(msg)
             raise RuntimeError(msg)
+
+        self.cls = None
+        self.obj = None
+
         if obj is not None:
             self.obj = obj
-        elif cls is not None:
+
+        if cls is not None:
+            self.cls = cls
             if cls_args is None: cls_args = ()
             if cls_kwargs is None: cls_kwargs = {}
-            self.obj = self._instantiate_cls(cls, *cls_args, **cls_kwargs)
-
+            try:
+                self.obj = self._instantiate_cls(cls, *cls_args, **cls_kwargs)
+            except:
+                pass
+                
         if name is None: name = self.obj.__class__.__name__
         self._name = name
         self._logfile = logfile
@@ -64,6 +73,10 @@ class Pyro4Server(object):
 
     def _instantiate_cls(self, cls, *args, **kwargs):
         return cls(*args, **kwargs)
+
+    def __call__(self, *args, **kwargs):
+        self.obj = self._instantiate_cls(self.cls, *args, **kwargs)
+        return (self, self.obj)
 
     @config.expose
     @property
@@ -114,6 +127,7 @@ class Pyro4Server(object):
             dict: "daemon" (Pyro4.Daemon): The server's daemon
                   "thread" (threading.Thread or None): If threaded, a instance of threading.Thread
                     running the daemon's requestLoop. If not, None.
+                  "uri" (Pyro4.URI): The daemon's uri
         """
         if tunnel_kwargs is None: tunnel_kwargs = {}
         daemon = Pyro4.Daemon(port=objectPort, host=objectHost)
@@ -160,6 +174,7 @@ class Pyro4Server(object):
                 self.daemon.shutdown()
             else:
                 self.daemon.close()
+
             try:
                 self.tunnel.ns.remove(self._name)
             except AttributeError as err:

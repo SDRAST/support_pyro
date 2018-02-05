@@ -21,21 +21,34 @@ class TestClass(object):
 
 class TestPyro4Server(unittest.TestCase):
 
+    def test_as_decorator(self):
+
+        @Pyro4Server
+        class TestClass1(object):
+            def square(self, x): return x**2
+
+        server, obj = TestClass1()
+        self.assertTrue(obj.square(10) == 100)
+
+    # @unittest.skip("")
     def test_init_with_obj(self):
         obj = TestClass("hello")
         server = Pyro4Server(obj=obj)
         self.assertTrue(isinstance(server.obj, TestClass))
 
+    # @unittest.skip("")
     def test_init_with_cls(self):
         server = Pyro4Server(cls=TestClass,
                              cls_args=("hello",),
                              cls_kwargs={"some_kwarg":"also hello"})
         self.assertTrue(isinstance(server.obj, TestClass))
 
+    # @unittest.skip("")
     def test_init_no_cls_no_obj(self):
         with self.assertRaises(RuntimeError):
             Pyro4Server()
 
+    # @unittest.skip("")
     def test_launch_server_local_no_ns(self):
         obj = TestClass("hello")
         server = Pyro4Server(obj=obj)
@@ -43,6 +56,7 @@ class TestPyro4Server(unittest.TestCase):
                             threaded=True,
                             ns=False,objectId="TestClass",objectPort=0)
 
+    # @unittest.skip("")
     def test_launch_server_local_with_ns(self):
         ns_uri, ns_daemon, ns = Pyro4.naming.startNS()
         t = threading.Thread(target=ns_daemon.requestLoop)
@@ -55,6 +69,7 @@ class TestPyro4Server(unittest.TestCase):
                             threaded=True,ns=True,objectId="TestClass",objectPort=0)
         ns_daemon.shutdown()
 
+# @unittest.skip("")
 class TestPyro4ServerIntegration(unittest.TestCase):
     """
     Assumes there is a SSH alias "me" setup.

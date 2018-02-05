@@ -71,7 +71,7 @@ class ContextualizedPublisherThread(PublisherThread):
         return res
 
 @config.expose
-class Publisher(Pyro4Server):
+class Publisher(object):
     """
     Publisher base class. The publish method is meant to be
     reimplemented in child classes.

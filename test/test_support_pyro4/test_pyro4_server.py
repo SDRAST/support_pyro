@@ -1,4 +1,5 @@
 import unittest
+import time
 import logging
 import threading
 import sys
@@ -7,63 +8,84 @@ import Pyro4
 from Pyro4 import naming, socketutil
 
 from .. import setup_logging
-from support_pyro.support_pyro4 import Pyro4Server, config, Pyro4ServerError
+from support_pyro.support_pyro4 import Pyro4Server
+from support.trifeni import errors
 
-class TestBasic(unittest.TestCase):
+class TestClass(object):
 
+    def __init__(self, some_arg, some_kwarg=None):
+        pass
+
+    def square(self, x):
+        return x**2
+
+class TestPyro4Server(unittest.TestCase):
+
+    def test_init_with_obj(self):
+        obj = TestClass("hello")
+        server = Pyro4Server(obj=obj)
+        self.assertTrue(isinstance(server.obj, TestClass))
+
+    def test_init_with_cls(self):
+        server = Pyro4Server(cls=TestClass,
+                             cls_args=("hello",),
+                             cls_kwargs={"some_kwarg":"also hello"})
+        self.assertTrue(isinstance(server.obj, TestClass))
+
+    def test_init_no_cls_no_obj(self):
+        with self.assertRaises(RuntimeError):
+            Pyro4Server()
+
+    def test_launch_server_local_no_ns(self):
+        obj = TestClass("hello")
+        server = Pyro4Server(obj=obj)
+        server.launch_server(tunnel_kwargs={"local":True},
+                            threaded=True,
+                            ns=False,objectId="TestClass",objectPort=0)
+
+    def test_launch_server_local_with_ns(self):
+        ns_uri, ns_daemon, ns = Pyro4.naming.startNS()
+        t = threading.Thread(target=ns_daemon.requestLoop)
+        t.daemon = True
+        t.start()
+        time.sleep(1)
+        obj = TestClass("hello")
+        server = Pyro4Server(obj=obj)
+        server.launch_server(tunnel_kwargs={"local":True,"ns_port":9090,"ns_host":"localhost"},
+                            threaded=True,ns=True,objectId="TestClass",objectPort=0)
+        ns_daemon.shutdown()
+
+class TestPyro4ServerIntegration(unittest.TestCase):
+    """
+    Assumes there is a SSH alias "me" setup.
+    """
     @classmethod
     def setUpClass(cls):
-        host, port = "localhost", socketutil.findProbablyUnusedPort()
-        uri, daemon, server = naming.startNS(host=host, port=port)
-        t = threading.Thread(target=daemon.requestLoop)
-        t.dameon = True
+        ns_uri, ns_daemon, ns = Pyro4.naming.startNS()
+        t = threading.Thread(target=ns_daemon.requestLoop)
+        t.daemon = True
         t.start()
-        cls.ns_thread = t
-        cls.ns_daemon = daemon
-        cls.ns_port = port
-        cls.ns_host = host
+        cls.ns_daemon = ns_daemon
 
     @classmethod
     def tearDownClass(cls):
         cls.ns_daemon.shutdown()
-        cls.ns_thread.join()
 
-    def setUp(self):
-        self.logger = logging.getLogger("TestBasic")
-        self.server = Pyro4Server()
+    def test_launch_server_no_ns(self):
+        obj = TestClass("hello")
+        server = Pyro4Server(obj=obj)
+        with self.assertRaises(errors.TunnelError):
+            server.launch_server(tunnel_kwargs={"remote_server_name":"me"},
+                                 threaded=True,ns=False)
 
-    def test_init_name(self):
-        name = "TestServer"
-        server = Pyro4Server(name=name)
-        self.assertTrue(server.name == name)
-
-    def test_init_logger(self):
-        server = Pyro4Server(logger=self.logger)
-        self.assertTrue(server.logger.name == "TestBasic")
-
-    def test_ping(self):
-        res = self.server.ping()
-        self.assertTrue(res)
-
-    def test_raise_pyro4_server_error(self):
-        def f():
-            raise Pyro4ServerError("Test Exception raised")
-        self.assertRaises(Pyro4ServerError, f)
-
-    def test_launch_server(self):
-        t = self.server.launch_server(
-                                    ns_port=self.ns_port,
-                                    ns_host=self.ns_host,
-                                    local=True, threaded=True
-        )["thread"]
-        self.assertTrue(self.server.running())
-        self.server.close()
-        self.logger.debug("server still running: {}".format(self.server.running()))
-        while self.server.running():
-            pass
-        self.assertFalse(self.server.running())
+    def test_launch_server_with_ns(self):
+        obj = TestClass("hello")
+        server = Pyro4Server(obj=obj)
+        with self.assertRaises(errors.TunnelError):
+            server = server.launch_server(
+                                tunnel_kwargs={"remote_server_name":"me","ns_host":"localhost","ns_port":9090},
+                                 threaded=True,ns=True)
 
 if __name__ == "__main__":
     setup_logging()
-    logging.getLogger().info("Running support_pyro.support_pyro4.Pyro4Server basic tests")
     unittest.main()

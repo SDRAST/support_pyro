@@ -32,7 +32,7 @@ class AsyncProxy(Pyro4.core.Proxy):
 
     def __init__(self, uri, daemon_details=None):
 
-        if int(pyro4_version_info[1]) >= 70:
+        if int(pyro4_version_info[1]) > 70:
             Pyro4.core.Proxy.__init__(self, uri, daemon_details=daemon_details)
         else:
             Pyro4.core.Proxy.__init__(self, uri)

@@ -13,52 +13,57 @@ import Pyro4
 module_logger = logging.getLogger(__name__)
 
 try:
-    from support.trifeni import errors, NameServerTunnel
-    TunnelError = errors.TunnelError
+    from support.trifeni import NameServerTunnel, DaemonTunnel, Pyro4Tunnel
 except ImportError as err:
     module_logger.error("Can't import NameServerTunnel or TunnelError: {}".format(err))
-    class TunnelError(Pyro4.errors.CommunicationError):
-        pass
+
 from .configuration import config
 
-__all__ = ["Pyro4Server","Pyro4ServerError"]
-
-class Pyro4ServerError(TunnelError):
-    pass
+__all__ = ["Pyro4Server"]
 
 class Pyro4Server(object):
     """
-    A super class for Pyro4 servers. This class is meant to be subclassed.
-    Attributes with a proceding underscore "_" are meant to be properties,
-    accessible to any client.
     """
-    def __init__(self, name="Pyro4Server", simulated=False, logfile=None, logger=None):
+    def __init__(self, obj=None,
+                       cls=None,
+                       cls_args=None,
+                       cls_kwargs=None,
+                       name=None,
+                       logfile=None,
+                       logger=None):
         """
         Keyword Args:
-            name (str): The name of the Pyro server.
-            simulated (bool): Simulation mode bool
-            local (bool): Local run bool
-        """
-        self._name = name
-        self._simulated = simulated
-        self._logfile = logfile
-        if not logger:
-            self.logger = logging.getLogger(module_logger.name+"."+name)
-        else:
-            self.logger = logger
-        self.serverlog = self.logger # For compatibility
-        self._local = None
-        self._running = False
 
+        """
+        if not logger: logger = logging.getLogger(module_logger.name +
+                                                ".{}".format(self.__class__.__name__))
+        self.logger = logger
+        if obj is None and cls is None:
+            msg = "Need to provide either an object or a class to __init__"
+            self.logger.error(msg)
+            raise RuntimeError(msg)
+        if obj is not None:
+            self.obj = obj
+        elif cls is not None:
+            if cls_args is None: cls_args = ()
+            if cls_kwargs is None: cls_kwargs = {}
+            self.obj = self._instantiate_cls(cls, *cls_args, **cls_kwargs)
+
+        if name is None: name = self.obj.__class__.__name__
+        self._name = name
+        self._logfile = logfile
+
+        self._running = False
         self.tunnel = None
-        self.remote_server_name = None
-        self.remote_port = None
-        self.proc = []
+        self.tunnel_kwargs = None
         self.server_uri = None
         self.daemon_thread = None
         self.daemon = None
         self.threaded = False
         self.lock = threading.Lock()
+
+    def _instantiate_cls(self, cls, *args, **kwargs):
+        return cls(*args, **kwargs)
 
     @config.expose
     @property
@@ -67,7 +72,6 @@ class Pyro4Server(object):
 
     @config.expose
     def running(self):
-        self.logger.debug("running: Called.")
         with self.lock:
             return self._running
 
@@ -77,41 +81,13 @@ class Pyro4Server(object):
         return self._name
 
     @config.expose
-    @property
-    def locked(self):
-        return self.lock.locked()
-
-    @config.expose
-    @property
-    def simulated(self):
-        """
-        Is the server returning simulated (fake) data?
-        """
-        return self._simulated
-
-    @config.expose
-    @property
-    def local(self):
-        return self._local
-
-    @config.expose
     def ping(self):
         """
-        Method to call if one wants to test connection to server.
-        If created a Pyro4.Proxy object using this server, one can also
-        use the following snippet:
-
-        ```python
-        ns = Pyro4.locateNS()
-        uri = ns.locate("<object_name>")
-        p = Pyro4.Proxy(uri)
-        p._pyroBind()
-        ```
-        Or use `p.ping()`, which will internally call `p._pyroBind` anyways.
+        ping the server
         """
-        return True
+        return "hello"
 
-    def handler(self, signum, frame):
+    def _handler(self, signum, frame):
         """
         Define actions that should occur before the server
         is shut down.
@@ -124,145 +100,72 @@ class Pyro4Server(object):
         finally:
             os.kill(os.getpid(), signal.SIGKILL)
 
-    def launch_daemon(self, remote_server_name="localhost",
-                            remote_port=22,
-                            remote_username=None,
-                            object_port=0,
-                            object_id=None,
-                            local=True):
-        """
-        Create a daemon for this object, and call it's requestLoop. This works
-        independently of a nameserver.
-        """
-        self.tunnel = Pyro4Tunnel()
-
-
-    def launch_server(self, remote_server_name='localhost',
-                            remote_port=22,
-                            remote_username=None,
-                            ns_host='localhost',
-                            ns_port=9090,
-                            object_port=0,
-                            object_id=None,
-                            local=True,
-                            local_forwarding_port=None,
-                            threaded=False,
-                            reverse=False):
+    def launch_server(self, threaded=False, reverse=False,
+                            objectId=None,objectPort=0,
+                            objectHost="localhost",
+                            ns=True,tunnel_kwargs=None):
         """
         Launch server, remotely or locally. Assumes there is a nameserver registered on
         ns_host/ns_port.
 
-        Note that the object_id parameter is not in keeping with Pyro4's
-        parameter naming scheme. Irmen uses camel case "objectId" and I'm using
-        "object_id". The latter I think better aligns with how I've been naming
-        parameters in this code base.
-
-        Usage:
-            s = Pyro4Server()
-            s.launch_server(local=True, ns_port=9090,
-                            ns_host="localhost",object_port=9091,
-                            object_id=None, threaded=True)
-            # now do other stuff.
-
-
         Keyword Args:
-            remote_server_name (str): The host of remote server ("localhost")
-                Note that even if this is "localhost" this does not mean
-                that we're registering object on the local server.
-                There could be a tunnel in place that uses "localhost".
-            remote_port (int): The port by which to access remote server (22)
-            remote_username (str): The username on the server on which we want to register object.
-            ns_host (str): The namserver host on the remote server ("localhost")
-            ns_port (int): The nameserver port on the remote server (9090)
-            object_port (int): The port on which to register object on remote nameserver (0)
-            object_id (str): The name to give the Daemon on the nameserver. If nothing is
-                provided, then Pyro4 will automatically generate a unique identifier for this
-                object.
-            local (bool): Whether or not we're registering this object on a local name server.
-                If this is true, then we act as if we're registering an object in the normal
-                Pyro4 manner. (True)
-            local_forwarding_port (int): The local forwarding port to use, if not the same as
-                the one generated by Pyro4. (None)
-            threaded (bool): Whether or not to run this independently or inside another program. (False)
-            reverse (bool): Whether or not to create reverse tunnel, so we can access remotely registered
-                object locally.
+
         Returns:
             dict: "daemon" (Pyro4.Daemon): The server's daemon
                   "thread" (threading.Thread or None): If threaded, a instance of threading.Thread
                     running the daemon's requestLoop. If not, None.
         """
-        self.tunnel = Pyro4Tunnel(remote_server_name=remote_server_name,
-                                    remote_username=remote_username,
-                                    ns_host=ns_host,
-                                    ns_port=ns_port,
-                                    local=local,
-                                    local_forwarding_port=local_forwarding_port)
-        self.threaded = threaded
-        self._local = self.tunnel.local
+        if tunnel_kwargs is None: tunnel_kwargs = {}
+        daemon = Pyro4.Daemon(port=objectPort, host=objectHost)
+        server_uri = daemon.register(self.obj,objectId=objectId)
+        if ns:
+            tunnel = NameServerTunnel(**tunnel_kwargs)
+            tunnel.register_remote_daemon(daemon, reverse=reverse)
+            tunnel.ns.register(self._name, server_uri)
+        else:
+            tunnel = Pyro4Tunnel(**tunnel_kwargs)
+            tunnel.register_remote_daemon(daemon, reverse=reverse)
 
-        self.daemon = Pyro4.Daemon(port=object_port, host=ns_host)
-        self.tunnel.register_remote_daemon(self.daemon, reverse=reverse)
-        self.server_uri = self.daemon.register(self,objectId=object_id)
-        self.logger.debug("Server uri is {}".format(self.server_uri))
-        self.tunnel.ns.register(self._name, self.server_uri)
-        self.logger.info("{} available".format(self._name))
+        self.logger.info("{} available".format(server_uri))
+
+        self.daemon = daemon
+        self.tunnel_kwargs = tunnel_kwargs
+        self.tunnel = tunnel
+        self.server_uri = server_uri
+        self.threaded = threaded
+
         with self.lock:
             self._running = True
 
         if not threaded:
-            signal.signal(signal.SIGINT, self.handler)
+            signal.signal(signal.SIGINT, self._handler)
             self.logger.debug("Starting request loop")
             self.daemon.requestLoop(self.running)
-            return {"daemon":self.daemon, "thread":None}
+            return {"daemon":self.daemon, "thread":None, "uri":self.server_uri}
         else:
             t = threading.Thread(target=self.daemon.requestLoop, args=(self.running,))
             t.daemon = True
             t.start()
-            return {"daemon":self.daemon, "thread":t}
+            return {"daemon":self.daemon, "thread":t, "uri":self.server_uri}
 
     def close(self):
         """
         Close down the server.
         If we're running this by itself, this gets called by the signal handler.
-
-        If we're running the server's daemon's requestLoop in a thread, then we
-        might proceed as follows:
-
-        ```
-        s = PyroServer("CoolPyroServer")
-        # The true argument is necessary so we don't attempt to call signal handler
-        t = threading.Thread(target=s.connect, args=('localhost', 9090, True))
-        t.start()
-        # Do some other fresh stuff.
-        s.close()
-        t.join()
-        ```
         """
         with self.lock:
-            t0 = time.time()
-            t1 = time.time()
             self._running = False
-            self.daemon.unregister(self)
-            # self.logger.debug("close: Took {:.3f} seconds to unregister daemon".format(time.time() - t1))
-            # if we use daemon.close, this will hang forever in a thread.
-            # This might appear to hang.
-            t1 = time.time()
+            self.daemon.unregister(self.obj)
             if self.threaded:
                 self.daemon.shutdown()
             else:
                 self.daemon.close()
-            # self.logger.debug("close: Took {:.3f} seconds to shutdown daemon".format(time.time() - t1))
-            # remove the name/uri from the nameserver so we can't try to access
-            # it later when there is no daemon running.
-            t1 = time.time()
             try:
                 self.tunnel.ns.remove(self._name)
+            except AttributeError as err:
+                self.logger.debug("Tried to remove object from nameserver that we don't have reference to")
             except Pyro4.errors.ConnectionClosedError as err:
                 self.logger.debug("Connection to object already shutdown: {}".format(err))
-            for proc in self.proc:
-                proc.kill()
-            # self.logger.debug("close: Took {:.3f} seconds to remove object from nameserver".format(time.time() - t1))
-            self.logger.debug("close: Took {:.3f} seconds to run close method".format(time.time() - t0))
 
     @classmethod
     def flaskify(cls, *args, **kwargs):
@@ -381,5 +284,5 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     # app, server = Pyro4Server.flaskify(name='TestServer', simulated=True)
     # app.run(debug=False)
-    server = Pyro4Server("TestServer", simulated=True)
-    server.launch_server(local=True, ns_port=9090, object_port=9091, obj_id="Pyro4Server.TestServer")
+    # server = Pyro4Server("TestServer", simulated=True)
+    # server.launch_server(local=True, ns_port=9090, object_port=9091, obj_id="Pyro4Server.TestServer")

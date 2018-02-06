@@ -76,19 +76,18 @@ class Publisher(object):
     Publisher base class. The publish method is meant to be
     reimplemented in child classes.
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self,serializer=Pyro4.config.SERIALIZER):
         self.context = zmq.Context.instance()
         self.lock = threading.Lock()
         self.publisher_thread = None
         self.emitter = EventEmitter()
-        self._serializer_name = kwargs.pop("serializer", Pyro4.config.SERIALIZER)
+        self._serializer_name = serializer
         self._serializer = Pyro4.util.get_serializer(self._serializer_name)
         self._publishing_started = False
         self._publishing_stopped = True
         self._publishing_paused = False
         self._publishing_address = None
         self.emitter = EventEmitter()
-        super(Publisher, self).__init__(*args,**kwargs)
 
     @property
     def publishing_started(self):

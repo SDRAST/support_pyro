@@ -57,7 +57,7 @@ class Pyro4Server(object):
                 self.obj = self._instantiate_cls(cls, *cls_args, **cls_kwargs)
             except:
                 pass
-                
+
         if name is None: name = self.obj.__class__.__name__
         self._name = name
         self._logfile = logfile

@@ -80,7 +80,6 @@ class Publisher(object):
         self.context = zmq.Context.instance()
         self.lock = threading.Lock()
         self.publisher_thread = None
-        self.emitter = EventEmitter()
         self._serializer_name = serializer
         self._serializer = Pyro4.util.get_serializer(self._serializer_name)
         self._publishing_started = False
@@ -113,7 +112,7 @@ class Publisher(object):
     def serializer(self):
         return self._serializer
 
-    @async_method
+    # @async_method
     def start_publishing(self, host="localhost", port=0):
         """
         Start publishing. This can either be called server side or client side.
@@ -139,21 +138,22 @@ class Publisher(object):
         if self.publisher_thread is None:
             self.publisher_thread = publisher_thread_factory(host, port)
             msg["address"] = self._publishing_address
-            self.start_publishing.cb(msg)
-            return
+            # self.start_publishing.cb(msg)
+            return msg
         else:
             stopped = self.publisher_thread.stopped()
             if stopped:
                 self.publisher_thread.join()
                 self.publisher_thread = publisher_thread_factory(host, port)
                 msg["address"] = self._publishing_address
-                self.start_publishing.cb(msg)
-                return
+                # self.start_publishing.cb(msg)
+                return msg
             paused = self.publisher_thread.paused()
             if paused:
-                return self.unpause_publishing(cb_info=self.start_publishing.cb_info)
+                return self.unpause_publishing()
+                # return self.unpause_publishing(cb_info=self.start_publishing.cb_info)
 
-    @async_method
+    # @async_method
     def pause_publishing(self):
         msg = {
             "status": "publishing paused",
@@ -163,9 +163,10 @@ class Publisher(object):
             with self.lock:
                 self.publisher_thread.pause()
         self._publishing_paused = True
-        self.pause_publishing.cb(msg)
+        # self.pause_publishing.cb(msg)
+        return msg
 
-    @async_method
+    # @async_method
     def unpause_publishing(self):
         msg = {
             "status": "publishing unpaused",
@@ -175,9 +176,10 @@ class Publisher(object):
             with self.lock:
                 self.publisher_thread.unpause()
         self._publishing_paused = False
-        self.unpause_publishing.cb(msg)
+        # self.unpause_publishing.cb(msg)
+        return msg
 
-    @async_method
+    # @async_method
     def stop_publishing(self):
         msg = {
             "status": "publishing stopped",
@@ -189,11 +191,13 @@ class Publisher(object):
             self.publisher_thread.join()
             self.publisher_thread = None
             self._publishing_stopped = True
-            self.stop_publishing.cb(msg)
+            return msg
+            # self.stop_publishing.cb(msg)
         else:
             msg["status"] = "no publishing to stop"
             msg["address"] = None
-            self.stop_publishing.cb(msg)
+            return msg
+            # self.stop_publishing.cb(msg)
 
     def publish(self):
         """

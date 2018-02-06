@@ -30,8 +30,10 @@ class AsyncProxy(Pyro4.core.Proxy):
         ["_daemon","_daemon_thread","_asyncHandlers"]
     )
 
-    def __init__(self, uri):
+    def __init__(self, uri, daemon_details=None):
+
         Pyro4.core.Proxy.__init__(self, uri)
+
         self._asyncHandlers = {}
 
         if daemon_details is None:

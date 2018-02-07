@@ -102,7 +102,7 @@ class Publisher(object):
 
     @property
     def publishing_address(self):
-        return
+        return self._publishing_address
 
     @property
     def serializer_name(self):
@@ -151,6 +151,10 @@ class Publisher(object):
             paused = self.publisher_thread.paused()
             if paused:
                 return self.unpause_publishing()
+            running = self.publisher_thread.running()
+            if running:
+                msg["address"] = self._publishing_address
+                return msg
                 # return self.unpause_publishing(cb_info=self.start_publishing.cb_info)
 
     # @async_method

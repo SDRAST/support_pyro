@@ -60,8 +60,8 @@ class Subscriber(EventEmitter):
     def __getattr__(self, attr):
         return getattr(self.proxy, attr)
 
-    @async_callback
-    def start_subscribing(self,res=None):
+    # @async_callback
+    def start_subscribing(self):
         self.logger.debug("start_subscribing: called.")
         def subscriber_thread_factory(address):
             self.logger.debug("start_subscribing.subscriber_thread_factory: address {}".format(address))

@@ -43,10 +43,13 @@ class SubscriberThread(PausableThread):
 
 class Subscriber(EventEmitter):
 
-    def __init__(self, uri, logger=None):
+    def __init__(self, uri_or_proxy, logger=None, proxy_class=AsyncProxy):
         super(Subscriber, self).__init__()
-        self.proxy = AsyncProxy(uri)
-        self.proxy.register(self)
+        if isinstance(uri_or_proxy, Pyro4.core.URI):
+            self.proxy = proxy_class(uri)
+        else:
+            self.proxy = uri_or_proxy
+        # self.proxy.register(self)
         self.context = zmq.Context.instance()
         self.subscriber_thread = None
         self.subscribing_started = False
@@ -76,18 +79,19 @@ class Subscriber(EventEmitter):
             subscriber_thread.start()
             return subscriber_thread
 
-        if res is not None:
-            self.emit("start")
-            self.logger.debug("start_subscribing: res: {}".format(res))
-            address = res["address"]
-            if self.subscribing_started:
-                return
-            elif self.subscribing_paused:
-                self.unpause_subscribing()
-            elif self.subscribing_stopped:
-                self.subscriber_thread = subscriber_thread_factory(address)
-        else:
-            self.proxy.start_publishing(callback=self.start_subscribing)
+        # if res is not None:
+        res = self.proxy.start_publishing()
+        self.emit("start")
+        self.logger.debug("start_subscribing: res: {}".format(res))
+        address = res["address"]
+        if self.subscribing_started:
+            return
+        elif self.subscribing_paused:
+            self.unpause_subscribing()
+        elif self.subscribing_stopped:
+            self.subscriber_thread = subscriber_thread_factory(address)
+        # else:
+        #     self.proxy.start_publishing(callback=self.start_subscribing)
 
     def pause_subscribing(self):
         self.logger.debug("pause_subscribing: called.")

@@ -9,7 +9,7 @@ from ..pyro4_server import Pyro4Server, config
 from ..util import PausableThread, EventEmitter, iterative_run
 from ..async import async_method
 
-__all__ = ["Publisher"]
+__all__ = ["Publisher","PublisherManager"]
 
 class PublisherThread(PausableThread):
 
@@ -18,12 +18,18 @@ class PublisherThread(PausableThread):
         self.event_emitter = EventEmitter()
         self.logger.debug("__init__: current thread: {}".format(threading.current_thread()))
 
+        if sys.version_info[0] == 2:
+            self.callback = self._Thread__target
+            self.callback_args = self._Thread__args
+            self.callback_kwargs = self._Thread__kwargs
+        else:
+            self.callback = self._target
+            self.callback_args = self._args
+            self.callback_kwargs = self._kwargs
+
     @iterative_run
     def run(self):
-        if sys.version_info[0] == 2:
-            self._Thread__target(*self._Thread__args, **self._Thread__kwargs)
-        else:
-            self._target(*self._args, **self._kwargs)
+        self.callback(*self.callback_args, **self.callback_kwargs)
 
     def stop_thread(self):
         self.event_emitter.emit("stop")
@@ -208,3 +214,85 @@ class Publisher(object):
         Reimplement this in order to call a method
         """
         raise NotImplementedError
+
+
+class PublisherManager(object):
+    def __init__(self):
+        self.publishers = {"__order__":[]}
+    def start_publishing(self):
+        raise NotImplementedError
+    def pause_publishing(self):
+        raise NotImplementedError
+    def unpause_publishing(self):
+        raise NotImplementedError
+    def stop_publishing(self):
+        raise NotImplementedError
+
+class SingleSocketPublisherThread(PublisherThread):
+    def __init__(self, queue, *args, **kwargs):
+        super(SingleSocketPublisherThread, self).__init__(*args, **kwargs)
+        self.queue = queue
+
+
+
+
+class SingleSocketPublisherManage(PublisherManager):
+    """
+    Manage serveral publishers on a single socket.
+    """
+    def __init__(self):
+        super(SingleSocketPublisherManage, self).__init__()
+        self.publisher_address = None
+        self.queue
+
+    def start_publishing(self):
+        pass
+    def pause_publishing(self):
+        pass
+    def unpause_publishing(self):
+        pass
+    def stop_publishing(self):
+        pass
+
+class MultiSocketPublisherManager(PublisherManager):
+    """
+    Manage many independent socket connections -- each publisher gets its
+    own socket connection
+    """
+    def __init__(self):
+        """
+        This should be reimplemented in a child class.
+        Keyword Args:
+            single_socket (bool): Whether to attempt use a single socket, versus
+                multiple socket connects. (False)
+        """
+        super(MultiSocketPublisherManager, self).__init__()
+        self.publisher_addresses = {}
+
+    def start_publishing(self):
+        for name in self.publishers["__order__"]:
+            publisher = self.publishers[name]
+            msg = publisher.start_publishing()
+            self.publisher_addresses[name] = msg["address"]
+        return self.publisher_addresses
+
+    def pause_publishing(self):
+        for name in self.publishers["__order__"]:
+            publisher = self.publishers[name]
+            msg = publisher.pause_publishing()
+            self.publisher_addresses[name] = msg["address"]
+        return self.publisher_addresses
+
+    def unpause_publishing(self):
+        for name in self.publishers["__order__"]:
+            publisher = self.publishers[name]
+            msg = publisher.unpause_publishing()
+            self.publisher_addresses[name] = msg["address"]
+        return self.publisher_addresses
+
+    def stop_publishing(self):
+        for name in self.publishers["__order__"]:
+            publisher = self.publishers[name]
+            msg = publisher.stop_publishing()
+            self.publisher_addresses[name] = msg["address"]
+        return self.publisher_addresses

@@ -1,4 +1,6 @@
+import logging
 import threading
+import queue
 import sys
 import time
 
@@ -9,7 +11,11 @@ from ..pyro4_server import Pyro4Server, config
 from ..util import PausableThread, EventEmitter, iterative_run
 from ..async import async_method
 
-__all__ = ["Publisher","PublisherManager"]
+__all__ = [
+    "ZmqPublisher",
+    "SingleSocketPublisherManager",
+    "MultiSocketPublisherManager"
+]
 
 class PublisherThread(PausableThread):
 
@@ -48,11 +54,6 @@ class ContextualizedPublisherThread(PublisherThread):
     def __init__(self, context, serializer, host="localhost", port=0, **kwargs):
         super(ContextualizedPublisherThread, self).__init__(**kwargs)
         self.context = context
-        if sys.version_info[0] == 2:
-            callback = self._Thread__target
-        else:
-            callback = self._target
-        self.callback = callback
         self.serializer = serializer
         if host == "localhost":
             host = "*"
@@ -76,22 +77,29 @@ class ContextualizedPublisherThread(PublisherThread):
             self.socket.close()
         return res
 
-@config.expose
+class SingleSocketPublisherThread(PublisherThread):
+    def __init__(self, queue, *args, **kwargs):
+        super(SingleSocketPublisherThread, self).__init__(*args, **kwargs)
+        self.queue = queue
+
+    @iterative_run
+    def run(self):
+        res = self.callback(*self.callback_args, **self.callback_kwargs)
+        self.queue.put(res)
+
+
 class Publisher(object):
     """
-    Publisher base class. The publish method is meant to be
+    Publisher base class. The start_publishing, pause_publishing,
+    unpause_publishing, stop_publishing and publish methods are meant to be
     reimplemented in child classes.
     """
-    def __init__(self,serializer=Pyro4.config.SERIALIZER):
-        self.context = zmq.Context.instance()
+    def __init__(self):
         self.lock = threading.Lock()
         self.publisher_thread = None
-        self._serializer_name = serializer
-        self._serializer = Pyro4.util.get_serializer(self._serializer_name)
         self._publishing_started = False
         self._publishing_stopped = True
         self._publishing_paused = False
-        self._publishing_address = None
         self.emitter = EventEmitter()
 
     @property
@@ -106,6 +114,35 @@ class Publisher(object):
     def publishing_paused(self):
         return self._publishing_paused
 
+    def start_publishing(self, *args, **kwargs):
+        raise NotImplementedError
+
+    def pause_publishing(self, *args, **kwargs):
+        raise NotImplementedError
+
+    def unpause_publishing(self, *args, **kwargs):
+        raise NotImplementedError
+
+    def stop_publishing(self, *args, **kwargs):
+        raise NotImplementedError
+
+    def publish(self):
+        raise NotImplementedError
+
+@config.expose
+class ZmqPublisher(Publisher):
+    """
+    Publisher base class. The publish method is meant to be
+    reimplemented in child classes.
+    """
+    def __init__(self,serializer=Pyro4.config.SERIALIZER):
+        super(ZmqPublisher, self).__init__()
+        self.context = zmq.Context.instance()
+        self._serializer_name = serializer
+        self._serializer = Pyro4.util.get_serializer(self._serializer_name)
+        self._publishing_address = None
+        self.emitter = EventEmitter()
+
     @property
     def publishing_address(self):
         return self._publishing_address
@@ -118,7 +155,6 @@ class Publisher(object):
     def serializer(self):
         return self._serializer
 
-    # @async_method
     def start_publishing(self, host="localhost", port=0):
         """
         Start publishing. This can either be called server side or client side.
@@ -163,7 +199,6 @@ class Publisher(object):
                 return msg
                 # return self.unpause_publishing(cb_info=self.start_publishing.cb_info)
 
-    # @async_method
     def pause_publishing(self):
         msg = {
             "status": "publishing paused",
@@ -176,7 +211,6 @@ class Publisher(object):
         # self.pause_publishing.cb(msg)
         return msg
 
-    # @async_method
     def unpause_publishing(self):
         msg = {
             "status": "publishing unpaused",
@@ -189,7 +223,6 @@ class Publisher(object):
         # self.unpause_publishing.cb(msg)
         return msg
 
-    # @async_method
     def stop_publishing(self):
         msg = {
             "status": "publishing stopped",
@@ -215,59 +248,92 @@ class Publisher(object):
         """
         raise NotImplementedError
 
-
-class PublisherManager(object):
-    def __init__(self):
-        self.publishers = {"__order__":[]}
-    def start_publishing(self):
-        raise NotImplementedError
-    def pause_publishing(self):
-        raise NotImplementedError
-    def unpause_publishing(self):
-        raise NotImplementedError
-    def stop_publishing(self):
-        raise NotImplementedError
-
-class SingleSocketPublisherThread(PublisherThread):
-    def __init__(self, queue, *args, **kwargs):
-        super(SingleSocketPublisherThread, self).__init__(*args, **kwargs)
-        self.queue = queue
-
-
-
-
-class SingleSocketPublisherManage(PublisherManager):
+class SingleSocketPublisherManager(Publisher):
     """
     Manage serveral publishers on a single socket.
     """
     def __init__(self):
-        super(SingleSocketPublisherManage, self).__init__()
-        self.publisher_address = None
-        self.queue
+        super(SingleSocketPublisherManager, self).__init__()
+        self.publishers = {"__order__":[]}
+        self.queue = queue.Queue()
 
-    def start_publishing(self):
-        pass
+    def start_publishing(self, host="localhost", port=0):
+        """
+        Instead of simply calling each Publisher's start_publishing method,
+        we actually grab each one's publish method and stuff it in a
+        SingleSocketPublisherThread instance.
+        """
+        for name in self.publishers["__order__"]:
+            publisher = self.publishers[name]
+            publisher_thread = SingleSocketPublisherThread(target=publisher.publish)
+            publisher_thread.start()
+            publisher.publisher_thread = publisher_thread
+
+        self.publisher_thread = ContextualizedPublisherThread(self.context, self.serializer,
+                                        host=host, port=port, target=self.publish)
+        self.publisher_thread.start()
+
+        return self.publisher_addresses
+
     def pause_publishing(self):
-        pass
-    def unpause_publishing(self):
-        pass
-    def stop_publishing(self):
-        pass
+        self.publisher_thread.pause()
+        for name in self.publishers["__order__"]:
+            publisher = self.publishers[name]
+            msg = publisher.pause_publishing()
+        return self.publisher_address
 
-class MultiSocketPublisherManager(PublisherManager):
+    def unpause_publishing(self):
+        self.publisher_thread.unpause()
+        for name in self.publishers["__order__"]:
+            publisher = self.publishers[name]
+            msg = publisher.unpause_publishing()
+        return self.publisher_address
+
+    def stop_publishing(self):
+        self.publisher_thread.stop()
+        for name in self.publishers["__order__"]:
+            publisher = self.publishers[name]
+            msg = publisher.stop_publishing()
+        return self.publisher_address
+
+    def publish(self):
+        if not self.queue.empty()
+            res = self.queue.get()
+            return res
+
+class MultiSocketPublisherManager(Publisher):
     """
     Manage many independent socket connections -- each publisher gets its
     own socket connection
     """
+
     def __init__(self):
         """
         This should be reimplemented in a child class.
-        Keyword Args:
-            single_socket (bool): Whether to attempt use a single socket, versus
-                multiple socket connects. (False)
         """
         super(MultiSocketPublisherManager, self).__init__()
         self.publisher_addresses = {}
+
+    @property
+    def publishing_started(self):
+        started = {}
+        for name in self.publishers["__order__"]:
+            started[name] = self.publishers.publishing_started()
+        return started
+
+    @property
+    def publishing_paused(self):
+        paused = {}
+        for name in self.publishers["__order__"]:
+            paused[name] = self.publishers.publishing_paused()
+        return paused
+
+    @property
+    def publishing_stopped(self):
+        stopped = {}
+        for name in self.publishers["__order__"]:
+            stopped[name] = self.publishers.publishing_stopped()
+        return stopped
 
     def start_publishing(self):
         for name in self.publishers["__order__"]:
@@ -296,3 +362,6 @@ class MultiSocketPublisherManager(PublisherManager):
             msg = publisher.stop_publishing()
             self.publisher_addresses[name] = msg["address"]
         return self.publisher_addresses
+
+    def publish(self):
+        pass

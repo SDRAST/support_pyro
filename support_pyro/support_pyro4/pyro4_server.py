@@ -116,6 +116,7 @@ class Pyro4Server(object):
     def launch_server(self, threaded=False, reverse=False,
                             objectId=None,objectPort=0,
                             objectHost="localhost",
+                            local=True,
                             ns=True,tunnel_kwargs=None):
         """
         Launch server, remotely or locally. Assumes there is a nameserver registered on
@@ -132,13 +133,20 @@ class Pyro4Server(object):
         if tunnel_kwargs is None: tunnel_kwargs = {}
         daemon = Pyro4.Daemon(port=objectPort, host=objectHost)
         server_uri = daemon.register(self.obj,objectId=objectId)
-        if ns:
-            tunnel = NameServerTunnel(**tunnel_kwargs)
-            tunnel.register_remote_daemon(daemon, reverse=reverse)
-            tunnel.ns.register(self._name, server_uri)
+        if not local:
+            if ns:
+                tunnel = NameServerTunnel(**tunnel_kwargs)
+                tunnel.register_remote_daemon(daemon, reverse=reverse)
+                tunnel.ns.register(self._name, server_uri)
+            else:
+                tunnel = Pyro4Tunnel(**tunnel_kwargs)
+                tunnel.register_remote_daemon(daemon, reverse=reverse)
+
         else:
-            tunnel = Pyro4Tunnel(**tunnel_kwargs)
-            tunnel.register_remote_daemon(daemon, reverse=reverse)
+            tunnel = None
+            if ns:
+                ns = Pyro4.locateNS(**tunnel_kwargs)
+                ns.register(self._name, server_uri)
 
         self.logger.info("{} available".format(server_uri))
 

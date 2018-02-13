@@ -1,11 +1,11 @@
 import time
 import random
 
-from support_pyro.support_pyro4.zmq import Publisher, Subscriber
+from support_pyro.support_pyro4.zmq import ZmqPublisher, ZmqSubscriber
 from support_pyro.support_pyro4.util import EventEmitter
 from support_pyro.support_pyro4.async import async_method
 
-class TestPublisherImplementation(Publisher):
+class TestPublisherImplementation(ZmqPublisher):
 
     # def __init__(self,*args, **kwargs):
     #     super(TestPublisherImplementation, self).__init__(*args, **kwargs)
@@ -37,7 +37,7 @@ class TestPublisherImplementation(Publisher):
         return super(TestPublisherImplementation, self).stop_publishing()
 
 
-class TestSubscriberImplementation(Subscriber):
+class TestSubscriberImplementation(ZmqSubscriber):
 
     def consume(self, res):
         # self.emit("consume", res)

@@ -129,6 +129,7 @@ def async_method(func):
             cb_updates (str, optional): The name of the updates callback
         """
         name = func.__name__
+
         if name == "__init__": # We're decorating a class, namely a worker class
             this = self
         else:
@@ -166,7 +167,10 @@ def async_method(func):
         return func(self, *args, **kwargs)
 
     wrapper._pyroAsync = True
-    return Pyro4.expose(Pyro4.oneway(wrapper))
+    if func.__name__ == "__init__":
+        return wrapper
+    else:
+        return Pyro4.expose(Pyro4.oneway(wrapper))
 
 def async_callback(fn):
     @functools.wraps(fn)

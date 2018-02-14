@@ -177,18 +177,23 @@ class Pyro4Server(object):
         """
         with self.lock:
             self._running = False
-            self.daemon.unregister(self.obj)
+            try:
+                self.daemon.unregister(self.obj)
+            except Exception as err:
+                self.logger.error("Couldn't unregister {} from daemon: {}".format(self.obj, err))
+
             if self.threaded:
                 self.daemon.shutdown()
             else:
                 self.daemon.close()
 
-            try:
-                self.tunnel.ns.remove(self._name)
-            except AttributeError as err:
-                self.logger.debug("Tried to remove object from nameserver that we don't have reference to")
-            except Pyro4.errors.ConnectionClosedError as err:
-                self.logger.debug("Connection to object already shutdown: {}".format(err))
+            if self.tunnel is not None:
+                try:
+                    self.tunnel.ns.remove(self._name)
+                except AttributeError as err:
+                    self.logger.debug("Tried to remove object from nameserver that we don't have reference to")
+                except Pyro4.errors.ConnectionClosedError as err:
+                    self.logger.debug("Connection to object already shutdown: {}".format(err))
 
     @classmethod
     def flaskify(cls, *args, **kwargs):

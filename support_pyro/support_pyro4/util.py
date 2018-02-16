@@ -1,6 +1,7 @@
 import logging
 import threading
 import time
+import sys
 
 import Pyro4
 import six
@@ -147,24 +148,23 @@ class PausableThread(threading.Thread):
     def running(self):
         return self._running_event.isSet()
 
-class PausableThreadCallback(threading.Thread):
+class PausableThreadCallback(PausableThread):
     """
 	A thread that runs the same callback over an over again, with some
 	predetermined wait time.
 	This thread can be paused, unpaused, and stopped in a thread-safe manner.
 	"""
 
-    def __init__(self, callback, name=None, *args):
-
-        threading.Thread.__init__(self)
-
-        self.name = name
-        self.callback = callback
-        self.args = args
-
-        self._pause_event = threading.Event()
-        self._stop_event = threading.Event()
-        self._running_event = threading.Event()
+    def __init__(self, *args, **kwargs):
+        super(PausableThreadCallback, self).__init__(self, *args, **kwargs)
+        if sys.version_info[0] == 2:
+            self.callback = self._Thread__target
+            self.callback_args = self._Thread__args
+            self.callback_kwargs = self._Thread__kwargs
+        else:
+            self.callback = self._target
+            self.callback_args = self._args
+            self.callback_kwargs = self._kwargs
 
     def run(self):
 
@@ -177,7 +177,7 @@ class PausableThreadCallback(threading.Thread):
                 continue
             else:
                 self._running.set()
-                self.callback(*self.args)
+                self.callback(*self.callback_args, **self.callback_kwargs)
                 self._running.clear()
 
     def stop_thread(self):

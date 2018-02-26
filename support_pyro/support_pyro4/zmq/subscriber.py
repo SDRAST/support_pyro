@@ -103,7 +103,7 @@ class ZmqSubscriber(Subscriber):
     def __init__(self, uri_or_proxy, logger=None, proxy_class=AsyncProxy):
         super(ZmqSubscriber, self).__init__(logger=logger)
         if isinstance(uri_or_proxy, Pyro4.core.URI):
-            self.proxy = proxy_class(uri)
+            self.proxy = proxy_class(uri_or_proxy)
         else:
             self.proxy = uri_or_proxy
         self.context = zmq.Context.instance()

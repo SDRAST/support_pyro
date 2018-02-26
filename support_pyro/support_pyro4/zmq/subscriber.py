@@ -36,9 +36,9 @@ class SubscriberThread(PausableThread):
     @iterative_run
     def run(self):
         if not self.socket.closed:
-            self.logger.debug("run: calling socket.recv")
+            # self.logger.debug("run: calling socket.recv")
             res = self.serializer.loads(self.socket.recv())
-            self.logger.debug("run: got {} from socket".format(res))
+            # self.logger.debug("run: got {} from socket".format(res))
             self.callback(res)
 
 class Subscriber(EventEmitter):
@@ -113,7 +113,7 @@ class ZmqSubscriber(Subscriber):
     def __getattr__(self, attr):
         return getattr(self.proxy, attr)
 
-    def start_subscribing(self):
+    def start_subscribing(self, *args,**kwargs):
         super(ZmqSubscriber, self).start_subscribing()
 
         def subscriber_thread_factory(address, serializer):
@@ -136,7 +136,7 @@ class ZmqSubscriber(Subscriber):
 
         if self.subscribing_stopped:
             if self.subscriber_thread is None: self.subscriber_thread = {}
-            res = self.proxy.start_publishing()
+            res = self.proxy.start_publishing(*args,**kwargs)
             self.logger.debug("start_subscribing: res: {}".format(res))
             for name in res:
                 publisher_info = res[name]

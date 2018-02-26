@@ -21,6 +21,8 @@ __all__ = [
     "MultiSocketPublisherManager"
 ]
 
+module_logger = logging.getLogger(__name__)
+
 class PublisherThread(PausableThread):
 
     def __init__(self, *args, **kwargs):
@@ -303,34 +305,58 @@ class SingleSocketPublisherManager(Publisher):
         self._publishing_address = {self._name:"{}:{}".format(host,port)}
         self.publisher_thread.start()
 
-        return self._publishing_address
+        msg = {
+            self._name:{
+                "address":self._publishing_address[self._name],
+                "status":"publishing started"
+            }
+        }
+
+        return msg
 
     def pause_publishing(self):
+        msg = {
+            self._name:{
+                "address":self._publishing_address[self._name],
+                "status":"publishing paused"
+            }
+        }
         if self.publisher_thread is not None:
             self.publisher_thread.pause()
         for publisher in self.publishers:
             msg = publisher.pause_publishing()
-        return self._publishing_address
+        return msg
 
     def unpause_publishing(self):
+        msg = {
+            self._name:{
+                "address":self._publishing_address[self._name],
+                "status":"publishing unpaused"
+            }
+        }
         if self.publisher_thread is not None:
-            self.publisher_thread.unpause()
+            ret_msg = self.publisher_thread.unpause()
         for publisher in self.publishers:
             msg = publisher.unpause_publishing()
-        return self._publishing_address
+        return msg
 
     def stop_publishing(self):
+        msg = {
+            self._name:{
+                "address":self._publishing_address[self._name],
+                "status":"publishing stopped"
+            }
+        }
         if self.publisher_thread is not None:
-            self.publisher_thread.stop()
+            ret_msg = self.publisher_thread.stop()
         for publisher in self.publishers:
             msg = publisher.stop_publishing()
-        return self._publishing_address
+        return msg
 
     def publish(self):
-        if not self.queue.empty():
-            res = self.queue.get()
-            self.queue.task_done() # not sure if this is necessary, I read about it in Python docs.
-            return res
+        res = self.queue.get()
+        self.queue.task_done() # not sure if this is necessary, I read about it in Python docs.
+        return res
 
 @config.expose
 class MultiSocketPublisherManager(Publisher):

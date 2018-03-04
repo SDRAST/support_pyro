@@ -91,7 +91,9 @@ class AsyncProxy(Pyro4.core.Proxy):
                 callback_dict["cb"] = method_name
                 kwargs["cb_info"] = callback_dict
 
-        module_logger.debug("_pyroInvoke: calling super, kwargs: {}".format(kwargs))
+        module_logger.debug("_pyroInvoke: calling super, methodname: {}, vargs: {}, kwargs: {}".format(
+            methodname, vargs, kwargs
+        ))
         resp = super(AsyncProxy, self)._pyroInvoke(methodname,
                                             vargs, kwargs,
                                             flags=flags,
@@ -178,6 +180,7 @@ class AsyncProxy(Pyro4.core.Proxy):
         a function object, or a method, return the corresponding registered
         object.
         """
+        module_logger.debug("lookup_function_or_method: type(callback) {}".format(callback))
         if isinstance(callback,str):
             # attempt to find the callback in the global context
             callback_obj = globals()[callback]
@@ -188,6 +191,9 @@ class AsyncProxy(Pyro4.core.Proxy):
         elif inspect.isfunction(callback):
             callback_obj = callback
             method_name = callback.__name__
+        # elif hasattr(callback, "__call__"):
+        #     callback_obj = callback
+        #     method_name = "__call__"
 
         return {"obj":callback_obj, "method":method_name}
 
@@ -212,7 +218,6 @@ class AsyncProxy(Pyro4.core.Proxy):
                 module_logger.debug(
                     "unregister: Didn't unregister object {} from daemon".format(obj)
                 )
-
 
     def wait_for_callback(self, callback):
         """

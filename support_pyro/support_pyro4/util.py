@@ -8,8 +8,7 @@ import six
 
 __all__ = ["iterative_run", "Pause",
            "PausableThread", "PausableThreadCallback",
-           "blocking", "non_blocking",
-           "EventEmitter"]
+           "blocking", "non_blocking"]
 
 module_logger = logging.getLogger(__name__)
 

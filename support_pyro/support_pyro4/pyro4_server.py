@@ -18,10 +18,11 @@ except ImportError as err:
     module_logger.error("Can't import NameServerTunnel or TunnelError: {}".format(err))
 
 from .configuration import config
+from .async.event_emitter import EventEmitter
 
 __all__ = ["Pyro4Server"]
 
-class Pyro4Server(object):
+class Pyro4Server(EventEmitter):
     """
     """
     def __init__(self, cls=None,
@@ -30,10 +31,11 @@ class Pyro4Server(object):
                        cls_kwargs=None,
                        name=None,
                        logfile=None,
-                       logger=None):
+                       logger=None,**kwargs):
         """
         Keyword Args:
         """
+        super(Pyro4Server, self).__init__(**kwargs)
         if not logger: logger = logging.getLogger(module_logger.name +
                                                 ".{}".format(self.__class__.__name__))
         self.logger = logger

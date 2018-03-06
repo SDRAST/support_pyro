@@ -20,7 +20,7 @@ class EventEmitterServer(EventEmitter):
     def emit(self,*args):
         super(EventEmitterServer, self).emit(*args)
 
-@unittest.skip("")
+# @unittest.skip("")
 class TestEventEmitter(unittest.TestCase):
 
     def test_event(self):
@@ -50,14 +50,16 @@ class TestRemoteEventEmitter(test_case_with_server(
                 self.called = False
             @async_callback
             def call(self, res):
-                module_logger.debug("call: res: {}".format(res))
+                module_logger.debug("call: {}".format(self.__str__()))
+                module_logger.debug("{}.call: res: {}".format(self.__class__.__name__, res))
                 self.called = True
-
+        self.OnEvent = OnEvent
         self.on_event = OnEvent()
 
     def tearDown(self):
         self.on_event.called = False
 
+#    @unittest.skip("")
     def test_event(self):
         p = EventEmitterProxy(self.uri)
         p.on("event",self.on_event.call)
@@ -66,7 +68,7 @@ class TestRemoteEventEmitter(test_case_with_server(
             pass
         self.assertTrue(self.on_event.called)
 
-    # @unittest.skip("")
+#    @unittest.skip("")
     def test_event_from_server(self):
         p = EventEmitterProxy(self.uri)
         p.on("event",self.on_event.call)
@@ -74,6 +76,23 @@ class TestRemoteEventEmitter(test_case_with_server(
         while not self.on_event.called:
             pass
         self.assertTrue(self.on_event.called)
+
+    # @unittest.skip("")
+    def test_multiple_handlers(self):
+        new_handler = self.OnEvent()
+        p = EventEmitterProxy(self.uri)
+        p.on("event",self.on_event.call)
+        p.on("event",new_handler.call)
+        p.emit("event","hello")
+
+        module_logger.debug(self.server._handlers)
+        while not self.on_event.called:
+            pass
+        while not new_handler.called:
+            pass
+
+        self.assertTrue(self.on_event.called)
+        self.assertTrue(new_handler.called)
 
 
 

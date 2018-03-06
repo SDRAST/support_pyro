@@ -10,12 +10,12 @@ class EventEmitter(object):
     def __init__(self, threaded=True):
         self.threaded = threaded
         self._lock = threading.Lock()
-        self.__handlers = {}
+        self._handlers = {}
 
     def emit(self, event_name, *args, **kwargs):
         def emitter():
-            if event_name in self.__handlers:
-                for handler in self.__handlers[event_name]:
+            if event_name in self._handlers:
+                for handler in self._handlers[event_name]:
                     with self._lock:
                         module_logger.debug(
                             "Emitting handler {} for event {}".format(handler,event_name)
@@ -38,12 +38,15 @@ class EventEmitter(object):
             event_name, callback
         ))
         with self._lock:
-            if event_name not in self.__handlers:
-                self.__handlers[event_name] = []
-            self.__handlers[event_name].append(callback)
+            if event_name not in self._handlers:
+                self._handlers[event_name] = []
+            self._handlers[event_name].append(callback)
 
 class EventEmitterProxy(AsyncProxy):
-
+    """
+    Extension to AsyncProxy that allows us to interact with
+    EventEmitters as servers.
+    """
     def on(self,event,callback,**kwargs):
         res = self.lookup_function_or_method(callback)
         callback_obj = res["obj"]

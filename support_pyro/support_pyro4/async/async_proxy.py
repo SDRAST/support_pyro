@@ -114,7 +114,7 @@ class AsyncProxy(Pyro4.core.Proxy):
             if objectId not in self._daemon.objectsById and not hasattr(obj, "_pyroId"):
                 module_logger.debug(
                     "register_handlers_with_daemon: Registering object {} with objectId {}...".format(
-                        obj.__class__.__name__, objectId[4:10]
+                        obj.__class__.__name__, objectId[4:11]
                     )
                 )
                 uri = self._daemon.register(obj, objectId=objectId)
@@ -141,14 +141,24 @@ class AsyncProxy(Pyro4.core.Proxy):
                 handler_obj = handler_class()
             else:
                 handler_obj = fn_or_obj
-            name = handler_obj.__class__.__name__
-            existing_obj_details = self.lookup(name)
-            if existing_obj_details is None:
+            if not hasattr(handler_obj, "_objectHandlerId"):
+                handler_obj._objectHandlerId = objectId
+
+            if objectId not in self._asyncHandlers:
                 self._asyncHandlers[objectId] = {"object": handler_obj}
-                return_vals.append([handler_obj, objectId])
-            else:
-                module_logger.debug("register: object with name {} already exists".format(name))
-                return_vals.append(existing_obj_details)
+
+            return_vals.append([handler_obj, objectId])
+            # existing_obj_details = self.lookup(handler_obj)
+            # module_logger.debug("register: existing_obj_details: {}".format(existing_obj_details))
+            # if len(existing_obj_details) == 0:
+            #     module_logger.debug("register: no object with objectId {} exists".format(objectId[4:11]))
+            #     self._asyncHandlers[objectId] = {"object": handler_obj}
+            #     return_vals.append([handler_obj, objectId])
+            # elif len(existing_obj_details) == 1:
+            #     module_logger.debug("register: object with objectId {} found".format(objectId[4:11]))
+            #     return_vals.append(existing_obj_details[0])
+            # else:
+            #     module_logger.debug("register: multiple objects found")
                 # raise RuntimeError("Function or object with name {} already registered".format(name))
         return return_vals
 
@@ -162,17 +172,24 @@ class AsyncProxy(Pyro4.core.Proxy):
         Returns:
             object, objectId, or None
         """
+        module_logger.debug("lookup: type(fn_or_obj): {}".format(type(fn_or_obj)))
+        module_logger.debug("lookup: hasattr(fn_or_obj, '_objectHandlerId'): {}".format(hasattr(fn_or_obj, '_objectHandlerId')))
+        result = []
         for objectId in self._asyncHandlers:
             obj = self._asyncHandlers[objectId]["object"]
-            if isinstance(fn_or_obj, str):
+            if hasattr(fn_or_obj, "_objectHandlerId"):
+                if fn_or_obj._objectHandlerId == objectId:
+                    result.append([obj, objectId])
+            elif isinstance(fn_or_obj, str):
                 if obj.__class__.__name__ == fn_or_obj:
-                    return obj, objectId
-            elif inspect.isfunction(fn_or_obj):
+                    result.append([obj, objectId])
+            elif inspect.isfunction(fn_or_obj): # we can only lookup by name
                 if obj.__class__.__name__ == fn_or_obj.__name__:
-                    return obj, objectId
+                    result.append([obj, objectId])
             else:
                 if obj.__class__ is fn_or_obj.__class__:
-                    return obj, objectId
+                    result.append([obj, objectId])
+        return result
 
     def lookup_function_or_method(self, callback):
         """
@@ -205,12 +222,12 @@ class AsyncProxy(Pyro4.core.Proxy):
                 function itself, or an object.
         """
         obj_info = self.lookup(fn_or_obj)
-        if obj_info is None:
+        if len(obj_info) == 0:
             error_msg = "Couldn't find function or object {}".format(fn_or_obj)
             module_logger.error(error_msg)
             raise RuntimeError(error_msg)
         else:
-            obj, objectId = obj_info
+            obj, objectId = obj_info[0]
             del self._asyncHandlers[objectId]
             if objectId in self._daemon.objectsById:
                 self._daemon.unregister(objectId)
@@ -230,7 +247,7 @@ class AsyncProxy(Pyro4.core.Proxy):
         """
         res = self.lookup_function_or_method(callback)
         method_name = res["method"]
-        obj, _ = self.lookup(res["obj"])
+        obj, _ = self.lookup(res["obj"])[0]
         callback = getattr(obj, method_name)
 
         while not obj._called[method_name]:

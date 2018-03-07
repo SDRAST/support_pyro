@@ -15,6 +15,7 @@ class EventEmitter(object):
         self._handlers = {}
 
     def emit(self, event_name, *args, **kwargs):
+        module_logger.debug("emit: called. event_name: {}".format(event_name))
         def emitter():
             if event_name in self._handlers:
                 for handler in self._handlers[event_name]:
@@ -26,6 +27,7 @@ class EventEmitter(object):
                             handler_obj = handler["cb_handler"]
                             handler_method_name = handler["cb"]
                             handler = getattr(handler_obj, handler_method_name)
+                            module_logger.debug("emit: handler: {}, method_name: {}".format(handler, handler_method_name))
                         handler(*args, **kwargs)
 
         if self.threaded:
@@ -50,6 +52,7 @@ class EventEmitterProxy(AsyncProxy):
     EventEmitters as servers.
     """
     def on(self,event,callback,**kwargs):
+        module_logger.debug("on: called for event {}".format(event))
         res = self.lookup_function_or_method(callback)
         callback_obj = res["obj"]
         method_name = res["method"]
@@ -61,4 +64,8 @@ class EventEmitterProxy(AsyncProxy):
             "cb_handler":obj,
             "cb":method_name
         }
-        return self._pyroInvoke("on",(event, callback_dict),kwargs)
+        return self._pyroInvoke("on",(event, callback_dict), kwargs)
+
+    # def emit(self, *args, **kwargs):
+    #     module_logger.debug("emit: called for event {}".format(args[0]))
+    #     self._pyroInvoke("emit", args, kwargs)

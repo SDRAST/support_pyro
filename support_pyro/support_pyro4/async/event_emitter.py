@@ -18,17 +18,24 @@ class EventEmitter(object):
         module_logger.debug("emit: called. event_name: {}".format(event_name))
         def emitter():
             if event_name in self._handlers:
+                handlers_to_remove = []s
                 for handler in self._handlers[event_name]:
                     with self._lock:
                         module_logger.debug(
-                            "Emitting handler {} for event {}".format(handler,event_name)
+                            "emit: handler {} for event {}".format(handler,event_name)
                         )
                         if isinstance(handler, dict):
                             handler_obj = handler["cb_handler"]
                             handler_method_name = handler["cb"]
                             handler = getattr(handler_obj, handler_method_name)
-                            module_logger.debug("emit: handler: {}, method_name: {}".format(handler, handler_method_name))
-                        handler(*args, **kwargs)
+                        try:
+                            handler(*args, **kwargs)
+                        except ConnectionClosedError as err:
+                            # this means that we're attempting to call a handler
+                            # that was registered from proxy that we're no longer
+                            # connected to.
+                            handlers_to_remove.append(handler)
+                self._cleanup(event_name, handlers_to_remove)
 
         if self.threaded:
             t = threading.Thread(target=emitter)
@@ -45,6 +52,23 @@ class EventEmitter(object):
             if event_name not in self._handlers:
                 self._handlers[event_name] = []
             self._handlers[event_name].append(callback)
+
+    def _cleanup(self, event, handlers_to_remove):
+        """
+        Given some handlers registered to an event, remove the handlers in
+        handlers_to_remove
+        Args:
+            event (str): name of event in self._handlers
+            handlers_to_remove (list): list of handlers to remove from self._handlers[event]
+        Returns:
+            None
+        """
+        if event not in self._handlers:
+            return
+        for handler in handlers_to_remove:
+            if handler in self._handlers[event]:
+                self._handlers[event].remove(handler)
+
 
 class EventEmitterProxy(AsyncProxy):
     """

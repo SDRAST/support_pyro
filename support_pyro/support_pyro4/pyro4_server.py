@@ -18,7 +18,7 @@ except ImportError as err:
     module_logger.error("Can't import NameServerTunnel or TunnelError: {}".format(err))
 
 from .configuration import config
-from .async.event_emitter import EventEmitter
+from .async import EventEmitter
 
 __all__ = ["Pyro4Server"]
 

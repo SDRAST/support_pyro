@@ -18,7 +18,7 @@ class EventEmitter(object):
         module_logger.debug("emit: called. event_name: {}".format(event_name))
         def emitter():
             if event_name in self._handlers:
-                handlers_to_remove = []s
+                handlers_to_remove = []
                 for handler in self._handlers[event_name]:
                     with self._lock:
                         module_logger.debug(

@@ -102,6 +102,14 @@ class Pyro4Server(EventEmitter):
         """
         return "hello"
 
+    @config.expose
+    def on(self, *args):
+        super(PyroServer, self).on(*args)
+
+    @config.expose
+    def emit(self, *args):
+        super(PyroServer, self).emit(*args)
+
     def _handler(self, signum, frame):
         """
         Define actions that should occur before the server

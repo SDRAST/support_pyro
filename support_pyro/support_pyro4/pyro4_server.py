@@ -104,11 +104,11 @@ class Pyro4Server(EventEmitter):
 
     @config.expose
     def on(self, *args):
-        super(PyroServer, self).on(*args)
+        super(Pyro4Server, self).on(*args)
 
     @config.expose
     def emit(self, *args):
-        super(PyroServer, self).emit(*args)
+        super(Pyro4Server, self).emit(*args)
 
     def _handler(self, signum, frame):
         """

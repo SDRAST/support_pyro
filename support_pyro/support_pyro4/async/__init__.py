@@ -5,11 +5,11 @@ import six
 import Pyro4
 
 from .async_proxy import AsyncProxy
-from .event_emitter import EventEmitter
+from .event_emitter import EventEmitter, EventEmitterProxy
 
 module_logger = logging.getLogger(__name__)
 
-__all__ = ["CallbackProxy", "async_method", "async_callback", "AsyncProxy", "EventEmitter"]
+__all__ = ["CallbackProxy", "async_method", "async_callback", "AsyncProxy", "EventEmitter", "EventEmitterProxy"]
 
 class CallbackProxy(object):
     """

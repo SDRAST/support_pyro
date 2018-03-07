@@ -1,6 +1,8 @@
 import logging
 import threading
 
+import Pyro4
+
 from .async_proxy import AsyncProxy
 
 module_logger = logging.getLogger(__name__)
@@ -30,7 +32,7 @@ class EventEmitter(object):
                             handler = getattr(handler_obj, handler_method_name)
                         try:
                             handler(*args, **kwargs)
-                        except ConnectionClosedError as err:
+                        except Pyro4.errors.ConnectionClosedError as err:
                             # this means that we're attempting to call a handler
                             # that was registered from proxy that we're no longer
                             # connected to.

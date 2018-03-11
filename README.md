@@ -62,7 +62,26 @@ Coming soon.
 
 #### zmq
 
-Coming soon.
+Subscribing:
+
+```python
+import Pyro4
+
+from support.pyro import zmq
+
+class MySubscriber(zmq.ZmqSubscriber):
+
+    def consume(self, res):
+        # do something with res
+        print("Got {} from publisher!".format(res))
+
+if __name__ == "__main__":
+    uri = "PYRO:APC@localhost:50001"
+    sub = MySubscriber(uri, proxy_class=Pyro4.Proxy) # default is support.pyro.async.AsyncProxy
+    # `start_subscribing` will call publisher start publishing method
+    # if not already called
+    sub.start_subscribing()
+```
 
 ### Installation
 

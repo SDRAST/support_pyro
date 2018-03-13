@@ -2,13 +2,15 @@ import logging
 import threading
 import time
 import sys
+import socket
 
 import Pyro4
+from Pyro4.util import SerializerBase
 import six
 
 __all__ = ["iterative_run", "Pause",
            "PausableThread", "PausableThreadCallback",
-           "blocking", "non_blocking"]
+           "blocking", "non_blocking","register_socket_error"]
 
 module_logger = logging.getLogger(__name__)
 
@@ -254,3 +256,15 @@ class EventEmitter(object):
             if event_name not in self.__handlers:
                 self.__handlers[event_name] = []
             self.__handlers[event_name].append(callback)
+
+def socket_error_class_to_dict(obj):
+    return {
+        "__class__": "socket.error"
+    }
+
+def socket_error_dict_to_class(classname,*args):
+    return socket.error(*args)
+
+def register_socket_error():
+    SerializerBase.register_dict_to_class("socket.error", socket_error_dict_to_class)
+    SerializerBase.register_class_to_dict(socket.error, socket_error_class_to_dict)

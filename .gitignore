@@ -4,6 +4,7 @@
 *.hdf5
 *.h5
 .idea/
+*~
 build/
 dist/
 sandbox/

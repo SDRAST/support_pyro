@@ -17,6 +17,7 @@ import atexit
 import socket
 import sys
 
+from local_dirs import *
 from support import NamedClass
 from support.local_dirs import log_dir
 from support.logs import set_module_loggers, initiate_option_parser,init_logging, get_loglevel, set_loglevel
@@ -192,7 +193,7 @@ class PyroServerLauncher(object):
   def _start_Pyro_log(self):
     """
     """
-    Pyro.config.PYRO_LOGFILE = '/usr/local/logs/PYRO/'+self.name+'.log'
+    Pyro.config.PYRO_LOGFILE = log_dir+'/PYRO/'+self.name+'.log'
     SLog.msg(self.name,"pyro_support module imported")
     SLog.msg(self.name,"server started")
 

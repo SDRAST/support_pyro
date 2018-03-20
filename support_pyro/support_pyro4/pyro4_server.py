@@ -31,15 +31,19 @@ class Pyro4Server(EventEmitter):
                        cls_kwargs=None,
                        name=None,
                        logfile=None,
-                       logger=None,**kwargs):
+                       logger=None,
+                       **kwargs):
         """
         Keyword Args:
         """
         super(Pyro4Server, self).__init__(**kwargs)
-        if not logger: logger = logging.getLogger(module_logger.name +
+        # this is not a good way to do it because the logger takes the name of the subclass
+        if not logger: 
+          logger = logging.getLogger(module_logger.name +
                                                 ".{}".format(self.__class__.__name__))
+          logger.debug("__init__: logger is %s", logger.name)
         self.logger = logger
-        self.logger.debug("__init__: cls: {}".format(cls))
+        self.logger.debug("Pyro4Server:__init__: cls: {}".format(cls))
         if obj is None and cls is None:
             msg = "Need to provide either an object or a class to __init__"
             self.logger.error(msg)

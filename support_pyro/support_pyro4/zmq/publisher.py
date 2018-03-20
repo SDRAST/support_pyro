@@ -147,7 +147,7 @@ class ZmqPublisher(Publisher):
     Publisher base class. The publish method is meant to be
     reimplemented in child classes.
     """
-    def __init__(self,name=None, serializer=Pyro4.config.SERIALIZER):
+    def __init__(self, name=None, serializer=Pyro4.config.SERIALIZER):
         super(ZmqPublisher, self).__init__(name=name)
         self.context = zmq.Context.instance()
         self._serializer_name = serializer

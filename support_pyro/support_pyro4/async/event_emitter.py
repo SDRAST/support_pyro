@@ -10,13 +10,34 @@ module_logger = logging.getLogger(__name__)
 __all__ = ["EventEmitter","EventEmitterProxy"]
 
 class EventEmitter(object):
+    """
+    class to execute one or more functions when an event occurs
 
+    Attributes::
+      _handlers - functions associated with events
+      _lock     - locks the thread
+      threaded  - this emitter works in a thread if True (default)
+    """
     def __init__(self, threaded=True):
+        """
+        @param threaded : execute the event in a thread
+        @type  threaded : bool
+        """
         self.threaded = threaded
         self._lock = threading.Lock()
         self._handlers = {}
 
     def emit(self, event_name, *args, **kwargs):
+        """
+        execute the handler function
+
+        @param event_name : event identifier
+        @type  event_name : str
+
+        @param *args : positional arguments to pass to the handler(s)
+
+        @param **kwargs : keyword arguments to pass to the handler(s)
+        """
         module_logger.debug("emit: called. event_name: {}".format(event_name))
         def emitter():
             if event_name in self._handlers:
@@ -47,6 +68,15 @@ class EventEmitter(object):
             emitter()
 
     def on(self, event_name, callback):
+        """
+        register a handler for an event
+
+        @param event_name : event identifier
+        @type  event_name : str
+
+        @param callback : action to perform
+        @type  callback : function
+        """
         module_logger.debug("on: called. event_name: {}, callback: {}".format(
             event_name, callback
         ))
@@ -59,11 +89,14 @@ class EventEmitter(object):
         """
         Given some handlers registered to an event, remove the handlers in
         handlers_to_remove
-        Args:
-            event (str): name of event in self._handlers
-            handlers_to_remove (list): list of handlers to remove from self._handlers[event]
-        Returns:
-            None
+
+        @param event : name of event in self._handlers
+        @type  event : str
+
+        @param handlers_to_remove : handlers to remove from _handlers[event]
+        @type  handlers_to_remove : list
+
+        @return: None
         """
         if event not in self._handlers:
             return

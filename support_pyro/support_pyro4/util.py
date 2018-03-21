@@ -20,7 +20,7 @@ def iterative_run(run_fn):
     Allows one to pause and stop the thread while its repeatedly calling
     the overridden run function.
     Args:
-        run_fn: the overridden run function from PausableThread
+        run_fn (callable): the overridden run function from PausableThread
     Returns:
         callable: wrapped function
     """
@@ -40,16 +40,19 @@ def iterative_run(run_fn):
 class Pause(object):
     """
 	A context manager for pausing threads.
-	This makes sure that when we unpause the thread when we're done
-	doing whatever task we needed.
-	"""
+    This starts by pausing input thread(s) and unpausing them when
+    code inside block has been called.
 
+    Attributes:
+        thread (dict): A collection of threads to pause and unpause.
+        init_pause_status (dict): The initial state of the threads in
+            the thread attribute.
+	"""
     def __init__(self, pausable_thread):
         """
-		args:
-		    - pausable_thread (list, PausableThread): An instance, or
-			    list of instances of PausableThread.
-			    If we pass "None", then this gets dealt with properly down stream.
+		Args:
+		    pausable_thread (list, PausableThread): An instance, or list of
+                instances of PausableThread. We can optionally pass None.
 		"""
         self.thread = pausable_thread
         if not isinstance(self.thread, dict):
@@ -97,9 +100,24 @@ class PausableThread(threading.Thread):
     """
     A pausable, stoppable thread.
 	It also has a running flag that can be used to determine if the process is still running.
+    This is meant to be subclassed.
+
+    Attributes:
+        name (str): name of thread, if any
+        daemon (bool): Daemon status
+        logger (logging.getLogger): logging instance.
+        _lock (threading.Lock): thread's internal lock
+        _pause_event (threading.Event): setting and clearing this indicates to
+            pause or unpause thread.
+        _stop_event (threading.Event): setting this stops thread.
+        _running_event (threading.Event): setting this indicates thread is
+            currently executing "run" method.
 	"""
     def __init__(self, *args, **kwargs):
         """
+        Args:
+            args: passed to super class
+            kwargs: passed to super class
 		"""
         name = kwargs.pop("name","PausableThread")
         logger = kwargs.pop("logger",None)
@@ -117,27 +135,30 @@ class PausableThread(threading.Thread):
 
     def stop_thread(self):
         """
+        Set self._stop_event
 		Stop the thread from running all together. Make
 		sure to join this up with threading.Thread.join()
-        For compatibility
-		"""
+        """
         self._stop_event.set()
 
     def stop(self):
+        """Alias for self.stop_thread"""
         return self.stop_thread()
 
     def pause_thread(self):
-        """For compatibility"""
+        """Set self._pause_event"""
         self._pause_event.set()
 
     def pause(self):
+        """Alias for self.pause_thread"""
         return self.pause_thread()
 
     def unpause_thread(self):
-        """For compatibility"""
+        """Clear self._pause_event"""
         self._pause_event.clear()
 
     def unpause(self):
+        """Alias for self.unpause_thread"""
         return self.unpause_thread()
 
     def stopped(self):
@@ -151,11 +172,9 @@ class PausableThread(threading.Thread):
 
 class PausableThreadCallback(PausableThread):
     """
-	A thread that runs the same callback over an over again, with some
-	predetermined wait time.
+	A thread that runs the same callback over an over again.
 	This thread can be paused, unpaused, and stopped in a thread-safe manner.
 	"""
-
     def __init__(self, *args, **kwargs):
         super(PausableThreadCallback, self).__init__(self, *args, **kwargs)
         if sys.version_info[0] == 2:
@@ -227,44 +246,20 @@ def non_blocking(func):
 
     return wrapper
 
-class EventEmitter(object):
-
-    def __init__(self, threaded=True):
-        self.threaded = threaded
-        self._lock = threading.Lock()
-        self.__handlers = {}
-
-    def emit(self, event_name, *args, **kwargs):
-        def emitter():
-            if event_name in self.__handlers:
-                for handler in self.__handlers[event_name]:
-                    with self._lock:
-                        module_logger.debug(
-                            "Emitting handler {} for event {}".format(handler,event_name)
-                        )
-                        handler(*args, **kwargs)
-
-        if self.threaded:
-            t = threading.Thread(target=emitter)
-            t.daemon = True
-            t.start()
-        else:
-            emitter()
-
-    def on(self, event_name, callback):
-        with self._lock:
-            if event_name not in self.__handlers:
-                self.__handlers[event_name] = []
-            self.__handlers[event_name].append(callback)
-
 def socket_error_class_to_dict(obj):
+    """Dictionary representation of socket.error"""
     return {
         "__class__": "socket.error"
     }
 
 def socket_error_dict_to_class(classname,*args):
+    """Reconstruct socket.error"""
     return socket.error(*args)
 
 def register_socket_error():
+    """
+    Register socket.error to Pyro4's SerializerBase so we can send
+    socket.errors across Pyro4 connections.
+    """
     SerializerBase.register_dict_to_class("socket.error", socket_error_dict_to_class)
     SerializerBase.register_class_to_dict(socket.error, socket_error_class_to_dict)

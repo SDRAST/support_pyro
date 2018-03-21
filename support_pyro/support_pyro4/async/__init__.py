@@ -40,7 +40,8 @@ class CallbackProxy(object):
                 if callable(cb):
                     setattr(self, key, cb)
                 elif isinstance(cb, six.string_types):
-                    if socket_info:
+                    if socket_info is not None:
+                        module_logger.debug("CallbackProxy.__init__: socket_info is not None")
                         app = socket_info['app']
                         socketio = socket_info['socketio']
                         def f(cb_name):
@@ -50,6 +51,7 @@ class CallbackProxy(object):
                             return emit_f
                         setattr(self, key, f(cb))
                     else:
+                        module_logger.debug("CallbackProxy.__init__: socket_info is None")
                         if self.cb_handler is not None:
                             try:
                                 setattr(self, key, getattr(self.cb_handler, cb))

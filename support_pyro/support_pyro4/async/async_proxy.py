@@ -17,6 +17,41 @@ module_logger.debug("from {}".format(__name__))
 class AsyncProxy(Pyro4.core.Proxy):
     """
     Proxy that has a Pyro4 Daemon attached to it that registers methods.
+    This is for passing callbacks to servers, such that the server can call
+    client-side functions. This will register functions/methods on the fly.
+
+    Say we have some server implemented as follows:
+
+    ```python
+    # async_server.py
+    from support.pyro import async
+
+    class AsyncServer(object):
+
+        @async.async_method
+        def async_method(self, *args):
+            self.async_method.cb(args) # bounce back whatever is sent
+
+    async_server = AsyncServer()
+    async_server.launch_server(ns=False,objectId="AsyncServer",objectPort=9092)
+    ```
+
+    We could access this server as follows:
+
+    ```python
+    # async_client.py
+
+    def handler(res):
+        print("Got {} from server!".format(res))
+
+    async_client = AsyncProxy("PYRO:AsyncServer@localhost:9092")
+    async_client.async_method(5,callback=handler)
+    while True:
+        pass
+    ```
+    Note that the last bit is necessary if running inside a script, otherwise
+    the client program will exit before the handler function can be called.
+
     This is not meant to be subclassed directly. Instead, if you'd like to
     access proxy methods/properties in a "Client" class, do so as follows:
 
@@ -25,13 +60,26 @@ class AsyncProxy(Pyro4.core.Proxy):
             self.proxy = AsyncProxy(uri)
         def __getattr__(self, attr):
             return getattr(self.proxy, attr)
+
+    Attributes:
+        __asyncAttributes (frozenset): List of protected attributes.
+        _asyncHandlers (dict): dictionary of functions/methods that are
+            registered with the daemon.
+        _daemon (Pyro4.Daemon): Daemon instance, used to register functions/methods
+            as callbacks
+        _daemon_thread (threading.Thread): thread in which _daemon's requestLoop
+            is running.
     """
     __asyncAttributes = frozenset(
         ["_daemon","_daemon_thread","_asyncHandlers"]
     )
-
     def __init__(self, uri, daemon_details=None):
-
+        """
+        Args:
+            uri (str/Pyro4.URI): passed to Pyro4.core.Proxy
+            daemon_details (dict): Register the AsyncProxy on some prexisting
+                Daemon.
+        """
         Pyro4.core.Proxy.__init__(self, uri)
 
         self._asyncHandlers = {}
@@ -196,6 +244,13 @@ class AsyncProxy(Pyro4.core.Proxy):
         Given some string (corresponding to a function in the global scope),
         a function object, or a method, return the corresponding registered
         object.
+        Args:
+            callback (callable/str): Some callback object, or the name of
+                some callback.
+        Returns:
+            dict: "obj": Either the function itself, or the object from which
+                        a method comes.
+                  "method": The name of the function
         """
         module_logger.debug("lookup_function_or_method: type(callback) {}".format(callback))
         if isinstance(callback,str):
@@ -208,9 +263,6 @@ class AsyncProxy(Pyro4.core.Proxy):
         elif inspect.isfunction(callback):
             callback_obj = callback
             method_name = callback.__name__
-        # elif hasattr(callback, "__call__"):
-        #     callback_obj = callback
-        #     method_name = "__call__"
 
         return {"obj":callback_obj, "method":method_name}
 

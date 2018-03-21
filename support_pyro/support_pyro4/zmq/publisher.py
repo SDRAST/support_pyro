@@ -24,7 +24,15 @@ __all__ = [
 module_logger = logging.getLogger(__name__)
 
 class PublisherThread(PausableThread):
-
+    """
+    A thread whose 'target' gets called repeatedly until told to pause or stop.
+    Attributes:
+        event_emitter (EventEmitter): Whenever the threads private threading.Events
+            are `set` or `clear`ed, the emitter indicates as such.
+        callback (callable): The thread's target
+        callback_args (list/tuple): arguments to the thread's target
+        callback_kwargs (dict): keyword arguments to the thread's target
+    """
     def __init__(self, *args, **kwargs):
         super(PublisherThread, self).__init__(*args, **kwargs)
         self.event_emitter = EventEmitter()
@@ -56,8 +64,48 @@ class PublisherThread(PausableThread):
         return super(PublisherThread, self).unpause_thread()
 
 class ContextualizedPublisherThread(PublisherThread):
+    """
+    A publisher thread with a zmq.Context instance and a serializer.
+    I'm careful to abide by thread safety rules, and I thought that creating
+    zmq "socket" connections inside threads would be smarter than creating
+    those connections outside the thread and passing them to the thread instance.
+    Example:
 
+    ```python
+    # contextualized_publisher_thread_example.py
+    import time
+    import json
+
+    import zmq
+
+    def publish():
+        time.sleep(1.0) # publish every second
+        return "hello"
+
+    context = zmq.Context.instance()
+    serializer = json
+    contextualized_publisher_thread = ContextualizedPublisherThread(context, serializer, target=publish)
+    contextualized_publisher_thread.start()
+    ```
+
+    Attributes:
+        context (zmq.Context.instance): zmq context
+        serializer (object): some object with a "dumps" method
+        host (str): host for zmq socket
+        port (int): port for zmq socket
+        address (str): zmq socket addresss
+        socket (zmq.Socket): zmq socket instance
+    """
     def __init__(self, context, serializer, host="localhost", port=0, **kwargs):
+        """
+        Args:
+            context (zmq.Context.instance): zmq context
+            serializer (object): some object with a "dumps" method
+            kwargs: passed to super class
+        Keyword Args:
+            host (str): publisher host ("localhost")
+            port (int): publisher port (0)
+        """
         super(ContextualizedPublisherThread, self).__init__(**kwargs)
         self.context = context
         self.serializer = serializer
@@ -84,6 +132,11 @@ class ContextualizedPublisherThread(PublisherThread):
         return res
 
 class SingleSocketPublisherThread(PublisherThread):
+    """
+    Push the results of the publishing function to a queue.
+    Attributes:
+        queue (Queue.Queue): A FIFO thread-safe queue.
+    """
     def __init__(self, queue, *args, **kwargs):
         super(SingleSocketPublisherThread, self).__init__(*args, **kwargs)
         self.queue = queue
@@ -99,8 +152,21 @@ class Publisher(object):
     Publisher base class. The start_publishing, pause_publishing,
     unpause_publishing, stop_publishing and publish methods are meant to be
     reimplemented in child classes.
+    Attributes:
+        lock (threading.Lock): lock for thread safety
+        publisher_thread (thread-like object): a thread-like object where the
+            Publisher's publish method is called repeatedly, in general.
+        _publishing_started (bool): boolean indicating whether publisher has started
+        _publishing_stopped (bool): boolean indicating whether publisher is stopped
+        _publishing_paused (bool): boolean indicating whether publisher is paused
+        _name (str): name of Publisher
+        emitter (EventEmitter): EventEmitter object.
     """
     def __init__(self, name=None):
+        """
+        Keyword Args:
+            name (str): Publisher name
+        """
         self.lock = threading.Lock()
         self.publisher_thread = None
         self._publishing_started = False
@@ -113,6 +179,10 @@ class Publisher(object):
     @property
     def name(self):
         return self._name
+
+    @name.setter
+    def name(self, new_name):
+        self._name = new_name
 
     @property
     def publishing_started(self):
@@ -144,10 +214,21 @@ class Publisher(object):
 @config.expose
 class ZmqPublisher(Publisher):
     """
-    Publisher base class. The publish method is meant to be
-    reimplemented in child classes.
+    ZMQ Publisher base class. This is a publisher that is specifically
+    meant to send information over zmq sockets.
+
+    Attributes:
+        context (zmq.Context.instance): zmq context
+        _serializer_name (str): name of serializer
+        _serializer (serializer like object): Some object with `dumps` method
+        _publishing_address (str): the publisher's socket address
     """
     def __init__(self,name=None, serializer=Pyro4.config.SERIALIZER):
+        """
+        Keyword Args:
+            name (str): passed to super class (None)
+            serialize (serializer like object): Some object with `dumps` method (Pyro4.config.SERIALIZER)
+        """
         super(ZmqPublisher, self).__init__(name=name)
         self.context = zmq.Context.instance()
         self._serializer_name = serializer
@@ -170,6 +251,8 @@ class ZmqPublisher(Publisher):
         """
         Start publishing. This can either be called server side or client side.
         Keyword Args:
+            host (str): publishing host
+            port (int): publishing port
         """
         def publisher_thread_factory(host, port):
             publisher_thread = ContextualizedPublisherThread(
@@ -256,6 +339,45 @@ class ZmqPublisher(Publisher):
 class SingleSocketPublisherManager(Publisher):
     """
     Manage several publishers on a single socket.
+    When we create a child class, we populate the publishers attribute with
+    individual Publisher objects.
+
+    Example:
+
+    ```python
+    # example_single_socket_publisher_manager
+
+    from support.pyro import zmq
+
+    class MyPublisher(zmq.Publisher):
+        def __init__(self,n,*args, **kwargs):
+            super(MyPublisher, self).__init__(*args, **kwargs)
+            self.n = n
+
+        def publish(self):
+            return "hello from {}".format(n)
+
+    class MySingleSocketPublisher(SingleSocketPublisherManager):
+        def __init__(self,**kwargs):
+            super(MySingleSocketPublisher).__init__(**kwargs)
+            self.publishers = [
+                MyPublisher(i) for i in xrange(10)
+            ]
+
+    pub = MySingleSocketPublisher()
+    pub.start_publishing()
+    # OR:
+    pub = SingleSocketPublisherManager()
+    pub.publishers = [
+        MyPublisher(i) for i in xrange(10)
+    ]
+    pub.start_publishing()
+
+    Attributes:
+        publishers (list): list of publisher objects
+        queue (Queue.Queue): FIFO thread safe queue.
+        context (zmq.Context.instance): zmq context
+        _publishing_address (str): zmq socket publisher address
     """
     def __init__(self,name=None):
         super(SingleSocketPublisherManager, self).__init__(name=name)

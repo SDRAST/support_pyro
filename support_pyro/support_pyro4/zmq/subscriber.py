@@ -13,8 +13,27 @@ __all__ = ["ZmqSubscriber"]
 module_logger = logging.getLogger(__name__)
 
 class SubscriberThread(PausableThread):
-
+    """
+    Thread for consuming incoming messages from a remote publisher.
+    Attributes:
+        context (zmq.Context.instance): zmq context
+        serializer (serializer like object): object with `loads` method
+        host (str): zmq socket host
+        port (port): zmq socket port
+        address (str): zmq subscribing address
+        callback (callable): thread's target
+        socket (zmq.Socket): zmq Socket instance.
+    """
     def __init__(self, context, serializer, host="localhost", port=0, **kwargs):
+        """
+        Args:
+            context (zmq.Context.instance): zmq context
+            serializer (serializer like object): object with `loads` method
+            kwargs (dict): passed to super class
+        Keyword Args:
+            host (str): zmq socket host. ("localhost")
+            port (port): zmq socket port. (0)
+        """
         super(SubscriberThread, self).__init__(**kwargs)
         self.context = context
         self.serializer = serializer
@@ -43,9 +62,22 @@ class SubscriberThread(PausableThread):
 
 class Subscriber(EventEmitter):
     """
-    Subscriber base class
+    Subscriber base class. This is meant to be subclassed, and the consume
+    method reimplemented.
+
+    Attributes:
+        subscriber_thread (thread like object)
+        subscribing_started (bool): boolean indicating whether subscriber has started
+        subscribing_stopped (bool): boolean indicating whether subscriber is stopped
+        subscribing_paused (bool): boolean indicating whether subscriber is paused
+        logger (logging.getLogger): logging instance
+
     """
     def __init__(self, logger=None):
+        """
+        Keyword Arguments:
+            logger (logging.getLogger): logging instance.
+        """
         super(Subscriber, self).__init__()
         self.subscriber_thread = None
         self.subscribing_started = False
@@ -96,11 +128,48 @@ class Subscriber(EventEmitter):
             self.subscriber_thread = None
 
     def consume(self, res):
-        """Meant to be reimplemented in child subclass"""
+        """
+        Meant to be reimplemented in child subclass
+        This is the main entry point for "consuming" messages from publisher.
+        """
         raise NotImplementedError
 
 class ZmqSubscriber(Subscriber):
+    """
+    Subscriber loaded up with some tools for receiving and deserializing messages
+    from a publisher.
+
+    Example:
+
+    ```python
+    # example_zmq_subscriber.py
+
+    class MyZmqSubscriber(ZmqSubscriber)
+        def consume(self, res):
+            print(res)
+
+    uri = "PYRO:MyPublisher@localhost:9093"
+    sub = MyZmqSubscriber(uri)
+    sub.start_subscribing()
+    ```
+
+    Attributes:
+        proxy (proxy like object): Some Proxy like object, namely something
+            like Pyro4.Proxy.
+        context (zmq.Context.instance): zmq context
+        serializer_name (str): Name of serializer
+        serializer (serializer like object): Some object with `loads` method
+    """
     def __init__(self, uri_or_proxy, logger=None, proxy_class=AsyncProxy):
+        """
+        Args:
+            uri_or_proxy (str/URI/proxy like object): Either a URI or a proxy-like
+                object. If we pass a uri, then we automatically create a proxy
+                using the proxy_class keyword argument
+        Keyword Args:
+            logger (logging.getLogger): logging instance (None)
+            proxy_class (type): Class for creating proxy-like object from URI. (AsyncProxy)
+        """
         super(ZmqSubscriber, self).__init__(logger=logger)
         if isinstance(uri_or_proxy, Pyro4.core.URI):
             self.proxy = proxy_class(uri_or_proxy)

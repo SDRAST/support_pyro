@@ -109,6 +109,8 @@ class EventEmitterProxy(AsyncProxy):
     """
     Extension to AsyncProxy that allows us to interact with
     EventEmitters as servers.
+
+    21-03-2018: This is largly untested and unproven.
     """
     def on(self,event,callback,**kwargs):
         module_logger.debug("on: called for event {}".format(event))

@@ -12,8 +12,8 @@ import Pyro4
 import zmq
 
 from ..pyro4_server import Pyro4Server, config
-from ..util import PausableThread, EventEmitter, iterative_run
-from ..async import async_method
+from ..util import PausableThread, iterative_run
+from ..async import async_method, EventEmitter
 
 __all__ = [
     "ZmqPublisher",

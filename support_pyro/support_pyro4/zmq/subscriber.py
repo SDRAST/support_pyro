@@ -4,9 +4,9 @@ import logging
 import zmq
 import Pyro4
 
-from ..async import async_callback
+from ..async import async_callback, EventEmitter
 from ..async.async_proxy import AsyncProxy
-from ..util import iterative_run, PausableThread, EventEmitter
+from ..util import iterative_run, PausableThread
 
 __all__ = ["ZmqSubscriber"]
 

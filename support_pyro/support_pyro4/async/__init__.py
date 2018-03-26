@@ -99,6 +99,44 @@ def async_method(func):
                                         "cb_updates":"long_running_method_cb_updates"})
     ```
 
+    We have to make sure that our client has registered the `long_running_method_cb`
+    method:
+
+    ```python
+    import threading
+
+    import Pyro4
+
+    class Handler(object):
+
+        def __init__(self):
+            self.daemon = Pyro4.Daemon()
+            self.uri = self.daemon.register(self)
+            self.daemon_thread = threading.Thread(target=self.daemon.requestLoop)
+
+        def long_running_method_cb(self, res)
+            print(res)
+
+        def long_running_method_cb_updates(self, res)
+            print(res)
+
+    uri = "" # some valid Pyro4 URI refering to a server with long_running_method registered.
+
+    handler = Handler()
+    proxy = Pyro4.Proxy(uri)
+
+    proxy.long_running_method(cb_info={"cb_handler":handler.uri,
+                                        "cb":"long_running_method_cb",
+                                        "cb_updates":"long_running_method_cb_updates"})
+
+    # Alternatively, we can pass a Proxy object refering to the handler to
+    # long_running_method:
+
+    proxy.long_running_method(cb_info={"cb_handler":Pyro4.Proxy(handler.uri),
+                                        "cb":"long_running_method_cb",
+                                        "cb_updates":"long_running_method_cb_updates"})
+    ```
+
     Note that you can also decorate "__init__" functions, but the behavior is different.
     Instead of setting *function* attributes, we set *instance attributes*. This is mostly
     useful for worker threads:

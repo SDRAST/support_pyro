@@ -263,6 +263,7 @@ class AsyncProxy(Pyro4.core.Proxy):
         elif inspect.isfunction(callback):
             callback_obj = callback
             method_name = callback.__name__
+        
 
         return {"obj":callback_obj, "method":method_name}
 

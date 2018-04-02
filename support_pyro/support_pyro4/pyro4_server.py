@@ -401,9 +401,9 @@ class Pyro4Server(EventEmitter):
                         args = data.get("args", [])
                         kwargs = data.get("kwargs", {})
                         async = getattr(method, "_pyroAsync", None)
-                        server.logger.info("{}: async: {}".format(method_name, async))
-                        server.logger.info("{}: kwargs: {}".format(method_name, kwargs))
-                        server.logger.info("{}: args: {}".format(method_name, args))
+                        server.logger.debug("{}: async: {}".format(method_name, async))
+                        server.logger.debug("{}: kwargs: {}".format(method_name, kwargs))
+                        server.logger.debug("{}: args: {}".format(method_name, args))
                         try:
                             if async:
                                 kwargs['socket_info'] = {'app':app, 'socketio':socketio}

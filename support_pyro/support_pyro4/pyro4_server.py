@@ -362,7 +362,7 @@ class Pyro4Server(EventEmitter):
         Use case is the same as Pyro4Server.flaskify, except that instead of
         registering an object's methods/attributes as routes, it registers
         them as socket routes.
-        
+
         Args:
             args (list/tuple): If first argument is an object, then register
                 this object's exposed methods. Otherwise, use args and kwargs
@@ -395,12 +395,12 @@ class Pyro4Server(EventEmitter):
             exposed = getattr(method, "_pyroExposed", None)
             async = getattr(method, "_pyroAsync", None)
             if exposed:
-                server.logger.info("Registering method: {}".format(method_name))
+                server.logger.info("Registering method: {}, async: {}".format(method_name, async))
                 def wrapper(method, method_name):
                     def f(data):
                         args = data.get("args", [])
                         kwargs = data.get("kwargs", {})
-                        # async = getattr(method, "_pyroAsync", None)
+                        async = getattr(method, "_pyroAsync", None)
                         server.logger.info("{}: async: {}".format(method_name, async))
                         server.logger.info("{}: kwargs: {}".format(method_name, kwargs))
                         server.logger.info("{}: args: {}".format(method_name, args))

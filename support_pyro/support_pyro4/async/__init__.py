@@ -3,6 +3,7 @@ import functools
 
 import six
 import Pyro4
+import gevent
 
 from .async_proxy import AsyncProxy
 from .event_emitter import EventEmitter, EventEmitterProxy
@@ -53,7 +54,10 @@ class CallbackProxy(object):
                         def f(cb_name):
                             def emit_f(*args, **kwargs):
                                 with app.test_request_context("/"):
+                                    # module_logger.debug("CallbackProxy.__init__:f.emit_f: calling socket.emit")
                                     socketio.emit(cb_name, {"args": args, "kwargs":kwargs})
+                                    # module_logger.debug("CallbackProxy.__init__:f.emit_f: socket.emit called")
+                                # socketio.sleep(0)
                             return emit_f
                         setattr(self, key, f(cb))
                     else:

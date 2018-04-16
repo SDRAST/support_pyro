@@ -377,7 +377,8 @@ class Pyro4Server(EventEmitter):
         import json
         from flask import Flask, jsonify, request
         from flask_socketio import SocketIO, send, emit
-        import gevent
+        import eventlet
+        eventlet.monkey_patch()
 
         if len(args) > 0:
             if isinstance(args[0], cls):
@@ -387,7 +388,7 @@ class Pyro4Server(EventEmitter):
         server.logger.info("Making flask socketio app.")
         app = Flask(server.name)
         app.config['SECRET_KEY'] = "radio_astronomy_is_cool"
-        socketio = SocketIO(app)
+        socketio = SocketIO(app, async_mode="eventlet")
 
         for method_pair in inspect.getmembers(cls):
             method_name = method_pair[0]
@@ -397,22 +398,18 @@ class Pyro4Server(EventEmitter):
             if exposed:
                 server.logger.info("Registering method: {}, async: {}".format(method_name, async))
                 def wrapper(method, method_name):
-                    def f(data):
+                    def inner(data):
                         args = data.get("args", [])
                         kwargs = data.get("kwargs", {})
                         async = getattr(method, "_pyroAsync", None)
-                        server.logger.debug("{}: async: {}".format(method_name, async))
-                        server.logger.debug("{}: kwargs: {}".format(method_name, kwargs))
-                        server.logger.debug("{}: args: {}".format(method_name, args))
+                        # server.logger.debug("{}: async: {}".format(method_name, async))
+                        # server.logger.debug("{}: kwargs: {}".format(method_name, kwargs))
+                        # server.logger.debug("{}: args: {}".format(method_name, args))
                         try:
                             if async:
                                 kwargs['socket_info'] = {'app':app, 'socketio':socketio}
-                                g = gevent.Greenlet.spawn(method, *args, **kwargs)
-                                status = "gevent.Greenlet started"
-                                # t = threading.Thread(target=method, args=args, kwargs=kwargs)
-                                # t.daemon = True
-                                # t.start()
-                                # status = "threading.Thread started"
+                                g = eventlet.spawn_n(method, *args, **kwargs)
+                                status = "eventlet.spawn_n started"
                                 result = None
                             else:
                                 result = method(*args, **kwargs)
@@ -423,9 +420,10 @@ class Pyro4Server(EventEmitter):
                             server.logger.error(status)
                         with app.test_request_context("/"):
                             socketio.emit(method_name, {"status":status, "result":result})
-                    return f
+                    return inner
 
-                socketio.on(method_name)(wrapper(method, method_name))
+                # socketio.on(method_name)(wrapper(method, method_name))
+                socketio.on_event(method_name, wrapper(method, method_name))
 
         return app, socketio, server
 

@@ -64,7 +64,8 @@ def async_method(func):
     """
     Decorator that declares that a method is to be called asynchronously.
     Methods that are decorated with this class use a common callback interface.
-    Say you have a server side method, `long_running_method` decorated with
+    
+    On the SERVER side we have a method `long_running_method` decorated with
     `async_method`:
 
     ```python
@@ -77,18 +78,17 @@ def async_method(func):
         self.long_running_method.cb(final_info)
     ...
     ```
-
     Any method that is decorated with this decorator will have three new attributes:
     "cb", "cb_updates", and "cb_handler". This assumes no a priori information about
     the client to which we are connected.
 
-    Now client side, we would call `long_running_method` as follows:
+    Now on the CLIENT side, we would call `long_running_method` as follows:
 
     ```python
     # Here handler is some Pyro4.Daemon that has some methods/objects registered to it.
-    client.long_running_method(*args,cb_info={'cb_handler':handler,
-                                        "cb":"long_running_method_cb",
-                                        "cb_updates":"long_running_method_cb_updates"})
+    client.long_running_method(*args,cb_info={'cb_handler': handler,
+                                              "cb":"long_running_method_cb",
+                                              "cb_updates":"long_running_method_cb_updates"})
     ```
 
     This is no doubt a little verbose client side, but it helps to create a clear

@@ -1,3 +1,17 @@
+"""
+execute a function on the occurrence of an event
+
+Example::
+  # from support.pyro.async.event_emitter import EventEmitter  -- not from ipython command line
+  from support.pyro.support_pyro.support_pyro4.async.event_emitter import EventEmitter
+
+  def some_callback():
+    print "callback executed"
+
+  ee = EventEmitter()
+  ee.on("anevent", some_callback)
+  ee.emit("anevent")
+"""
 import logging
 import threading
 
@@ -10,17 +24,43 @@ module_logger = logging.getLogger(__name__)
 __all__ = ["EventEmitter","EventEmitterProxy"]
 
 class EventEmitter(object):
-
+    """
+    class to execute one or more functions when an event occurs
+    
+    Attributes::
+      _handlers - functions associated with events
+      _lock     - locks the thread
+      threaded  - this emitter works in a thread if True (default)
+    """
     def __init__(self, threaded=True):
+        """
+        initialization
+        
+        @param threaded : execute the event in a thread
+        @type  threaded : bool
+        """
         self.threaded = threaded
         self._lock = threading.Lock()
         self._handlers = {}
 
     def emit(self, event_name, *args, **kwargs):
+        """
+        execute the handler function
+        
+        @param event_name : event identifier
+        @type  event_name : str
+        
+        @param *args : positional arguments to pass to the handler(s)
+        
+        @param **kwargs : keyword arguments to pass to the handler(s)
+        """
         module_logger.debug("emit: called. event_name: {}".format(event_name))
         def emitter():
+            # process an event
             if event_name in self._handlers:
+                # only if a handler is defined forthe event
                 handlers_to_remove = []
+                # an event may have many handlers
                 for handler in self._handlers[event_name]:
                     with self._lock:
                         module_logger.debug(
@@ -38,7 +78,9 @@ class EventEmitter(object):
                             # connected to.
                             handlers_to_remove.append(handler)
                 self._cleanup(event_name, handlers_to_remove)
-
+            else: # just to show where the conditional block ends
+                pass
+                
         if self.threaded:
             t = threading.Thread(target=emitter)
             t.daemon = True
@@ -47,11 +89,21 @@ class EventEmitter(object):
             emitter()
 
     def on(self, event_name, callback):
+        """
+        register a handler for an event
+        
+        @param event_name : event identifier
+        @type  event_name : str
+        
+        @param callback : action to perform
+        @type  callback : function
+        """
         module_logger.debug("on: called. event_name: {}, callback: {}".format(
             event_name, callback
         ))
         with self._lock:
             if event_name not in self._handlers:
+                # create an empty list of handlers for a new event
                 self._handlers[event_name] = []
             self._handlers[event_name].append(callback)
 
@@ -59,11 +111,14 @@ class EventEmitter(object):
         """
         Given some handlers registered to an event, remove the handlers in
         handlers_to_remove
-        Args:
-            event (str): name of event in self._handlers
-            handlers_to_remove (list): list of handlers to remove from self._handlers[event]
-        Returns:
-            None
+        
+        @param event : name of event in self._handlers
+        @type  event : str
+        
+        @param handlers_to_remove : handlers to remove from _handlers[event]
+        @type  handlers_to_remove : list
+        
+        @return: None
         """
         if event not in self._handlers:
             return
@@ -77,7 +132,12 @@ class EventEmitterProxy(AsyncProxy):
     Extension to AsyncProxy that allows us to interact with
     EventEmitters as servers.
     """
-    def on(self,event,callback,**kwargs):
+    def on(self, event, callback, **kwargs):
+        """
+        when event occurs execute callback with the specified keyword arguments
+        
+        @param event :
+        """
         module_logger.debug("on: called for event {}".format(event))
         res = self.lookup_function_or_method(callback)
         callback_obj = res["obj"]

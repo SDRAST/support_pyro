@@ -17,8 +17,8 @@ module_logger = logging.getLogger(__name__)
 def iterative_run(run_fn):
     """
     A decorator for running functions repeatedly inside a PausableThread.
-    Allows one to pause and stop the thread while its repeatedly calling
-    the overridden run function.
+    Allows one to pause and stop the thread while it's repeatedly calling
+    the overridden run() function.
     Args:
         run_fn: the overridden run function from PausableThread
     Returns:
@@ -39,20 +39,22 @@ def iterative_run(run_fn):
 
 class Pause(object):
     """
-	A context manager for pausing threads.
-	This makes sure that when we unpause the thread when we're done
-	doing whatever task we needed.
-	"""
+	  A context manager for pausing threads.
+	  
+	  This makes sure that when we unpause the thread when we're done
+	  doing whatever task we needed.
+	  """
 
     def __init__(self, pausable_thread):
         """
-		args:
-		    - pausable_thread (list, PausableThread): An instance, or
-			    list of instances of PausableThread.
-			    If we pass "None", then this gets dealt with properly down stream.
-		"""
+		    If we pass "None", then this gets dealt with properly down stream.
+		    
+		    @param pausable_thread : instance or list of PausableThread objects
+		    @type  pausible_thread : list, PausableThread
+		    """
         self.thread = pausable_thread
         if not isinstance(self.thread, dict):
+            # if the argument is not a dict, make it one
             self.thread = {'thread': self.thread}
 
         self.init_pause_status = {}
@@ -65,13 +67,16 @@ class Pause(object):
 
     def __enter__(self):
         """
-		Pause the thread in quesiton, and make sure that whatever
-		functionality is being performing is actually stopped.
-		"""
+		    Pause the thread
+		    
+		    Wait until the thread is actually stopped.
+		    """
         for name in self.thread.keys():
             t = self.thread[name]
             if t:
+                # if there really is a thread
                 if not self.init_pause_status[name]:
+                    # and it is not already paused
                     t.pause_thread()
             else:
                 pass
@@ -79,15 +84,21 @@ class Pause(object):
         for name in self.thread.keys():
             t = self.thread[name]
             if t:
+                # if there really is a thread
                 while self.thread[name].running():
+                    # wait until it is no longer running
                     time.sleep(0.001)
             else:
                 pass
 
     def __exit__(self, *args):
+        """
+        Unpause the thread
+        """
         for name in self.thread.keys():
             t = self.thread[name]
             if t:
+                # if there really is a thread
                 if not self.init_pause_status[name]:
                     self.thread[name].unpause_thread()
             else:
@@ -96,11 +107,16 @@ class Pause(object):
 class PausableThread(threading.Thread):
     """
     A pausable, stoppable thread.
-	It also has a running flag that can be used to determine if the process is still running.
-	"""
+    
+	  It also has a running flag that can be used to determine if the process is
+	  still running.
+	  """
     def __init__(self, *args, **kwargs):
         """
-		"""
+        create a pausable thread
+		    """
+		    # get the name of the thread from kwargs or set to default
+		    # remove from kwargs
         name = kwargs.pop("name","PausableThread")
         logger = kwargs.pop("logger",None)
         super(PausableThread, self).__init__(*args, **kwargs)
@@ -111,16 +127,17 @@ class PausableThread(threading.Thread):
         self.name = name
         self.daemon = True
         self._lock = threading.Lock()
+        # create events for the thread states
         self._pause_event = threading.Event()
         self._stop_event = threading.Event()
         self._running_event = threading.Event()
 
     def stop_thread(self):
         """
-		Stop the thread from running all together. Make
-		sure to join this up with threading.Thread.join()
+		    Stop the thread from running all together. Make
+		    sure to join this up with threading.Thread.join()
         For compatibility
-		"""
+		    """
         self._stop_event.set()
 
     def stop(self):
@@ -228,7 +245,11 @@ def non_blocking(func):
     return wrapper
 
 class EventEmitter(object):
-
+    """
+    earlier version of EventEmitter now in support.pyro.async.event_emitter
+    
+    this does not handle disconnected sockets
+    """
     def __init__(self, threaded=True):
         self.threaded = threaded
         self._lock = threading.Lock()

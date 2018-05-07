@@ -1,15 +1,15 @@
 import Pyro4
 
-from support_pyro.support_pyro4.async import async, module_logger
+from support.pyro import async
 
 class Server(object):
 
-    @async
+    @async.async_method
     def square(self, x):
         print("square: x: {}".format(x))
         self.square.cb(x**2)
 
-    @async
+    @async.async_method
     def repeat(self, word, times):
         print("repeat: word: {}, times: {}".format(word, times))
         word_list = [word for i in range(times)]

@@ -162,7 +162,7 @@ class Pyro4Server(EventEmitter):
                 ns = Pyro4.locateNS(**tunnel_kwargs)
                 ns.register(self._name, server_uri)
 
-        self.logger.info("{} available".format(server_uri))
+        self.logger.warning("{} available".format(server_uri))
 
         self.daemon = daemon
         self.tunnel_kwargs = tunnel_kwargs
@@ -175,7 +175,7 @@ class Pyro4Server(EventEmitter):
 
         if not threaded:
             signal.signal(signal.SIGINT, self._handler)
-            self.logger.debug("Starting request loop")
+            self.logger.warning("launch_server: starting request loop")
             self.daemon.requestLoop(self.running)
             return {"daemon":self.daemon, "thread":None, "uri":self.server_uri}
         else:

@@ -34,6 +34,7 @@ class AutoReconnectingProxy(Pyro4.core.Proxy):
 
 class Pyro4Client(object):
     """
+    21-03-2018: Untested.
     A simple wrapper around Pyro4.Proxy.
     This is meant to be subclassed. Client side methods are meant to be put here.
     """
@@ -41,6 +42,7 @@ class Pyro4Client(object):
         """
         Intialize a connection the Pyro server.
         Args:
+            tunnel ()
 
         """
         if logger is None:
@@ -62,6 +64,10 @@ class Pyro4Client(object):
         return getattr(self.server, attr)
 
     def check_connection(self):
+        """
+        Check to make sure server is still active. If not, attempt to reestablish
+        connection.
+        """
         t0 = time.time()
         try:
             pinged = self.server.ping()

@@ -26,7 +26,7 @@ __all__ = ["EventEmitter","EventEmitterProxy"]
 class EventEmitter(object):
     """
     class to execute one or more functions when an event occurs
-    
+
     Attributes::
       _handlers - functions associated with events
       _lock     - locks the thread
@@ -35,7 +35,7 @@ class EventEmitter(object):
     def __init__(self, threaded=True):
         """
         initialization
-        
+
         @param threaded : execute the event in a thread
         @type  threaded : bool
         """
@@ -111,13 +111,13 @@ class EventEmitter(object):
         """
         Given some handlers registered to an event, remove the handlers in
         handlers_to_remove
-        
+
         @param event : name of event in self._handlers
         @type  event : str
-        
+
         @param handlers_to_remove : handlers to remove from _handlers[event]
         @type  handlers_to_remove : list
-        
+
         @return: None
         """
         if event not in self._handlers:
@@ -131,6 +131,8 @@ class EventEmitterProxy(AsyncProxy):
     """
     Extension to AsyncProxy that allows us to interact with
     EventEmitters as servers.
+
+    21-03-2018: This is largly untested and unproven.
     """
     def on(self, event, callback, **kwargs):
         """

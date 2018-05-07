@@ -17,7 +17,7 @@ class Server(object):
         self.repeat.cb(res)
 
 if __name__ == "__main__":
-    port = 50001
+    port = 50100
     host = "localhost"
     with Pyro4.Daemon(port=port, host=host) as daemon:
         server = Server()

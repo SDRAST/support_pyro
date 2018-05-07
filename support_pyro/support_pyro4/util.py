@@ -20,7 +20,7 @@ def iterative_run(run_fn):
     Allows one to pause and stop the thread while it's repeatedly calling
     the overridden run() function.
     Args:
-        run_fn: the overridden run function from PausableThread
+        run_fn (callable): the overridden run function from PausableThread
     Returns:
         callable: wrapped function
     """
@@ -43,8 +43,12 @@ class Pause(object):
 	  
 	  This makes sure that when we unpause the thread when we're done
 	  doing whatever task we needed.
-	  """
 
+    Attributes:
+        thread (dict): A collection of threads to pause and unpause.
+        init_pause_status (dict): The initial state of the threads in
+            the thread attribute.
+	  """
     def __init__(self, pausable_thread):
         """
 		    If we pass "None", then this gets dealt with properly down stream.
@@ -109,11 +113,26 @@ class PausableThread(threading.Thread):
     A pausable, stoppable thread.
     
 	  It also has a running flag that can be used to determine if the process is
-	  still running.
+	  still running. This is meant to be subclassed.
+
+    Attributes:
+        name (str): name of thread, if any
+        daemon (bool): Daemon status
+        logger (logging.getLogger): logging instance.
+        _lock (threading.Lock): thread's internal lock
+        _pause_event (threading.Event): setting and clearing this indicates to
+            pause or unpause thread.
+        _stop_event (threading.Event): setting this stops thread.
+        _running_event (threading.Event): setting this indicates thread is
+            currently executing "run" method.
 	  """
     def __init__(self, *args, **kwargs):
         """
         create a pausable thread
+        
+        Args:
+            args: passed to super class
+            kwargs: passed to super class
 		    """
 		    # get the name of the thread from kwargs or set to default
 		    # remove from kwargs
@@ -134,6 +153,8 @@ class PausableThread(threading.Thread):
 
     def stop_thread(self):
         """
+        Set self._stop_event
+
 		    Stop the thread from running all together. Make
 		    sure to join this up with threading.Thread.join()
         For compatibility
@@ -141,20 +162,23 @@ class PausableThread(threading.Thread):
         self._stop_event.set()
 
     def stop(self):
+        """Alias for self.stop_thread"""
         return self.stop_thread()
 
     def pause_thread(self):
-        """For compatibility"""
+        """Set self._pause_event"""
         self._pause_event.set()
 
     def pause(self):
+        """Alias for self.pause_thread"""
         return self.pause_thread()
 
     def unpause_thread(self):
-        """For compatibility"""
+        """Clear self._pause_event"""
         self._pause_event.clear()
 
     def unpause(self):
+        """Alias for self.unpause_thread"""
         return self.unpause_thread()
 
     def stopped(self):
@@ -168,11 +192,9 @@ class PausableThread(threading.Thread):
 
 class PausableThreadCallback(PausableThread):
     """
-	A thread that runs the same callback over an over again, with some
-	predetermined wait time.
+	A thread that runs the same callback over an over again.
 	This thread can be paused, unpaused, and stopped in a thread-safe manner.
 	"""
-
     def __init__(self, *args, **kwargs):
         super(PausableThreadCallback, self).__init__(self, *args, **kwargs)
         if sys.version_info[0] == 2:
@@ -279,13 +301,19 @@ class EventEmitter(object):
             self.__handlers[event_name].append(callback)
 
 def socket_error_class_to_dict(obj):
+    """Dictionary representation of socket.error"""
     return {
         "__class__": "socket.error"
     }
 
 def socket_error_dict_to_class(classname,*args):
+    """Reconstruct socket.error"""
     return socket.error(*args)
 
 def register_socket_error():
+    """
+    Register socket.error to Pyro4's SerializerBase so we can send
+    socket.errors across Pyro4 connections.
+    """
     SerializerBase.register_dict_to_class("socket.error", socket_error_dict_to_class)
     SerializerBase.register_class_to_dict(socket.error, socket_error_class_to_dict)

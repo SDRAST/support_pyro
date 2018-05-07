@@ -17,6 +17,7 @@ module_logger.debug("from {}".format(__name__))
 class AsyncProxy(Pyro4.core.Proxy):
     """
     Proxy that has a Pyro4 Daemon attached to it that registers methods.
+
     
     A proxy is a connection to a remote Pyro server object. The remote object
     is typically an instance of a class. This modified proxy associates 
@@ -34,6 +35,7 @@ class AsyncProxy(Pyro4.core.Proxy):
               return getattr(self.proxy, attr)
     
     Attributes::
+      __asyncAttributes (frozenset): List of protected attributes.
       _asyncHandlers - dict with details of the handlers
       _daemon        - Pyro4.Daemon
       _daemon_thread - threading.Thread for the daemon
@@ -43,11 +45,44 @@ class AsyncProxy(Pyro4.core.Proxy):
       "object" - the name of the remote object
       "uri"    - the Pyro URI of the remote object
       
+    This is for passing callbacks to servers, such that the server can call
+    client-side functions. This will register functions/methods on the fly.
+
+    Say we have some server implemented as follows:
+
+    ```python
+    # async_server.py
+    from support.pyro import async
+
+    class AsyncServer(object):
+
+        @async.async_method
+        def async_method(self, *args):
+            self.async_method.cb(args) # bounce back whatever is sent
+
+    async_server = AsyncServer()
+    async_server.launch_server(ns=False,objectId="AsyncServer",objectPort=9092)
+    ```
+
+    We could access this server as follows:
+
+    ```python
+    # async_client.py
+
+    def handler(res):
+        print("Got {} from server!".format(res))
+
+    async_client = AsyncProxy("PYRO:AsyncServer@localhost:9092")
+    async_client.async_method(5,callback=handler)
+    while True:
+        pass
+    ```
+    Note that the last bit is necessary if running inside a script, otherwise
+    the client program will exit before the handler function can be called.
     """
     __asyncAttributes = frozenset(
         ["_daemon","_daemon_thread","_asyncHandlers"]
     )
-
     def __init__(self, uri, daemon_details=None):
         """
         Create an AsyncProxy object and start it's daemon's thread
@@ -292,9 +327,13 @@ class AsyncProxy(Pyro4.core.Proxy):
         Given some string (corresponding to a function in the global scope),
         a function object, or a method, return the corresponding registered
         object.
-        
-        Returns a dict with the remote method's name keyed to "name" and
-        the callback object to "obj".
+        Args:
+            callback (callable/str): Some callback object, or the name of
+                some callback.
+        Returns:
+            dict: "obj": Either the function itself, or the object from which
+                        a method comes.
+                  "method": The name of the function
         """
         #module_logger.debug("lookup_function_or_method:"+
         #                                 " type(callback) {}".format(callback))
@@ -311,9 +350,6 @@ class AsyncProxy(Pyro4.core.Proxy):
             # if the callback itself is given and is a function, get its name
             callback_obj = callback
             method_name = callback.__name__
-        # elif hasattr(callback, "__call__"):
-        #     callback_obj = callback
-        #     method_name = "__call__"
         return {"obj":callback_obj, "method":method_name}
 
     def unregister(self, fn_or_obj):

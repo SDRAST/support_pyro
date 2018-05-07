@@ -24,6 +24,34 @@ __all__ = ["Pyro4Server"]
 
 class Pyro4Server(EventEmitter):
     """
+    class that can launch an object or instance of class on a nameserver or
+    simply as a daemon.
+
+    The flaskify method can automatically create flask routes from an object's
+    methods
+
+    The flaskify_io method can automatically create socket routes from an object's
+    methods.
+
+    Attributes:
+        logger (logging.getLogger): object logger
+        cls (type): a class whose methods and attribute the server accesses by
+            instantiating an object.
+        obj (object): An object whose methods and attributes the server accesses.
+        name (str): Name of server
+        logfile (str): Path to logfile for server.
+        running (bool): boolean expressing whether the server has been launched
+            or not
+        tunnel (support.trifeni.Pyro4Tunnel like): A tunnel instance.
+        tunnel_kwargs (dict): key word arguments that are uesd to instantiate
+            tunnel instance
+        server_uri (str/Pyro4.URI): the server's URI
+        daemon_thread (threading.Thread): the thread in which the daemon's
+            requestLoop method is running.
+        daemon (Pyro4.Daemon): The server's daemon.
+        threaded (bool): Whether or not the server is running in a thread or
+            on the main thread.
+        lock (threading.Lock): Lock for thread safety.
     """
     def __init__(self, cls=None,
                        obj=None,
@@ -34,7 +62,17 @@ class Pyro4Server(EventEmitter):
                        logger=None,
                        **kwargs):
         """
+        Args:
+            kwargs: Passed to super class.
         Keyword Args:
+            cls (type): A class that will be instantiated with cls_args
+                cls_kwargs, to be used as the server's object.
+            obj (object): Some object that will be registered on a Pyro4.Daemon.
+            cls_args (tuple/list): Arguments passed to cls.
+            cls_kwargs (dict): Keyword Arguments passed to cls.
+            name (str): server name
+            logfile (str): path to server's logfile
+            logger (logging.getLogger): logging instance.
         """
         super(Pyro4Server, self).__init__(**kwargs)
         # this is not a good way to do it because the logger takes the name of the subclass
@@ -78,26 +116,53 @@ class Pyro4Server(EventEmitter):
         self.lock = threading.Lock()
 
     def _instantiate_cls(self, cls, *args, **kwargs):
+        """
+        Create an instance of a class, given some arguments and keyword arguments.
+        Args:
+            cls (type): a class to be instantiated
+            args: passed to cls
+            kwargs: passed to cls
+        """
         return cls(*args, **kwargs)
 
-    def __call__(self, *args, **kwargs):
-        self.obj = self._instantiate_cls(self.cls, *args, **kwargs)
-        return (self, self.obj)
+    # def __call__(self, *args, **kwargs):
+    #     """
+    #     DEPRECATED. For use when decorating classes with Pyro4Server class.
+    #     """
+    #     self.obj = self._instantiate_cls(self.cls, *args, **kwargs)
+    #     return (self, self.obj)
 
     @config.expose
     @property
     def logfile(self):
+        """
+        Make logfile attribute accessible to a proxy corresponding to this server.
+        """
         return self._logfile
 
     @config.expose
     def running(self):
+        """
+        Get running status of server
+        """
         with self.lock:
             return self._running
 
     @config.expose
     @property
     def name(self):
+        """
+        Make name attribute accessible to a proxy.
+        """
         return self._name
+
+    @config.expose
+    @name.setter
+    def name(self, new_name):
+        """
+        Set name attribute.
+        """
+        self._name = new_name
 
     @config.expose
     def ping(self):
@@ -108,16 +173,25 @@ class Pyro4Server(EventEmitter):
 
     @config.expose
     def on(self, *args):
+        """
+        Explicitly expose EventEmitter's on method
+        """
         super(Pyro4Server, self).on(*args)
 
     @config.expose
     def emit(self, *args):
+        """
+        Explicitly expose EventEmitter's emit method
+        """
         super(Pyro4Server, self).emit(*args)
 
     def _handler(self, signum, frame):
         """
         Define actions that should occur before the server
         is shut down.
+        Args:
+            signum (int): current signal number
+            frame (None/frame object): current stack frame
         """
         try:
             self.logger.info("Closing down server.")
@@ -133,10 +207,26 @@ class Pyro4Server(EventEmitter):
                             local=True,
                             ns=True,tunnel_kwargs=None):
         """
-        Launch server, remotely or locally. Assumes there is a nameserver registered on
-        ns_host/ns_port.
+        Launch server, remotely or locally. Creates a Pyro4.Daemon, and optionally
+        registers it on some local or remote nameserver.
+
+        The if objectId, objectPort and objectHost are full specified, the daemon
+        this method creates will look as follows:
+            "PYRO:<objectId>@<objectHost>:<objectPort>"
 
         Keyword Args:
+            threaded (bool): If true, launch server on a thread. Otherwise,
+                launch server on main thread. (False)
+            reverse (bool): Create revese tunnel. (False)
+            objectId (str): The id for this object's daemon. (None)
+            objectPort (int): The daemon's port. (0, or random)
+            objectHost (str): The daemon's host. ("localhost")
+            local (bool): Whether or not to create SSH tunnel to some remote
+                server. If True, doesn't create tunnels. (True)
+            ns (bool): Whether or not to attempt to register object's daemon
+                on a nameserver (True)
+            tunnel_kwargs (dict): used to create tunnel instance, or used
+                as parameters to find nameserver (None)
 
         Returns:
             dict: "daemon" (Pyro4.Daemon): The server's daemon
@@ -216,6 +306,16 @@ class Pyro4Server(EventEmitter):
         There are two use cases:
         You pass parameters to instantiate a new instance of cls, or
         You pass an object of cls as the first argument, and this is the server used.
+
+        Args:
+            args (list/tuple): If first argument is an object, then register
+                this object's exposed methods. Otherwise, use args and kwargs
+                as paramters to instantiate an object of implicit cls.
+            kwargs (dict): Passed to implicit cls.
+        Returns:
+            app (Flask): Flask app
+            server (object): some object whose methods/attributes have been
+                registered as routes on app.
         """
         import json
         from flask import Flask, jsonify, request
@@ -262,15 +362,27 @@ class Pyro4Server(EventEmitter):
     @classmethod
     def flaskify_io(cls, *args, **kwargs):
         """
-        Create a flaskio server using the PyroServer.
-        There are two use cases:
-        You pass parameters to instantiate a new instance of cls, or
-        You pass an object of cls as the first argument, and this is the server used.
+        Create a flaskio server.
+        Use case is the same as Pyro4Server.flaskify, except that instead of
+        registering an object's methods/attributes as routes, it registers
+        them as socket routes.
+
+        Args:
+            args (list/tuple): If first argument is an object, then register
+                this object's exposed methods. Otherwise, use args and kwargs
+                as paramters to instantiate an object of implicit cls.
+            kwargs (dict): Passed to implicit cls.
+        Returns:
+            app (Flask): Flask app
+            socketio (SocketIO): flask_socketio.SocketIO instance.
+            server (object): object whose methods have been registered as
+                socket routes.
         """
         import json
         from flask import Flask, jsonify, request
         from flask_socketio import SocketIO, send, emit
-        import gevent
+        import eventlet
+        eventlet.monkey_patch()
 
         if len(args) > 0:
             if isinstance(args[0], cls):
@@ -280,32 +392,28 @@ class Pyro4Server(EventEmitter):
         server.logger.info("Making flask socketio app.")
         app = Flask(server.name)
         app.config['SECRET_KEY'] = "radio_astronomy_is_cool"
-        socketio = SocketIO(app)
+        socketio = SocketIO(app, async_mode="eventlet")
 
         for method_pair in inspect.getmembers(cls):
             method_name = method_pair[0]
             method = getattr(server, method_name)
             exposed = getattr(method, "_pyroExposed", None)
-            async = getattr(method, "_async_method", None)
+            async = getattr(method, "_pyroAsync", None)
             if exposed:
-                server.logger.info("Registering method: {}".format(method_name))
+                server.logger.info("Registering method: {}, async: {}".format(method_name, async))
                 def wrapper(method, method_name):
-                    def f(data):
+                    def inner(data):
                         args = data.get("args", [])
                         kwargs = data.get("kwargs", {})
-                        async = getattr(method, "_async_method", None)
-                        server.logger.info("{}: Async status: {}".format(method_name, async))
-                        server.logger.info("{}: kwargs: {}".format(method_name, kwargs))
-                        server.logger.info("{}: args: {}".format(method_name, args))
+                        async = getattr(method, "_pyroAsync", None)
+                        # server.logger.debug("{}: async: {}".format(method_name, async))
+                        # server.logger.debug("{}: kwargs: {}".format(method_name, kwargs))
+                        # server.logger.debug("{}: args: {}".format(method_name, args))
                         try:
                             if async:
                                 kwargs['socket_info'] = {'app':app, 'socketio':socketio}
-                                # g = gevent.Greenlet.spawn(method, *args, **kwargs)
-                                # status = "gevent.Greenlet started"
-                                t = threading.Thread(target=method, args=args, kwargs=kwargs)
-                                t.daemon = True
-                                t.start()
-                                status = "threading.Thread started"
+                                g = eventlet.spawn_n(method, *args, **kwargs)
+                                status = "eventlet.spawn_n started"
                                 result = None
                             else:
                                 result = method(*args, **kwargs)
@@ -316,9 +424,10 @@ class Pyro4Server(EventEmitter):
                             server.logger.error(status)
                         with app.test_request_context("/"):
                             socketio.emit(method_name, {"status":status, "result":result})
-                    return f
+                    return inner
 
-                socketio.on(method_name)(wrapper(method, method_name))
+                # socketio.on(method_name)(wrapper(method, method_name))
+                socketio.on_event(method_name, wrapper(method, method_name))
 
         return app, socketio, server
 

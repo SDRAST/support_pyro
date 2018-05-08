@@ -15,7 +15,7 @@ def repeat_callback(res):
     called["repeat_callback"] = True
     print(res)
 
-uri = "PYRO:Server@localhost:50100"
+uri = "PYRO:BasicServer@localhost:9091"
 
 client = async.AsyncProxy(uri)
 

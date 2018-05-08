@@ -61,17 +61,17 @@ class Pyro4Server(EventEmitter):
                        logfile=None,
                        logger=None,**kwargs):
         """
+
         Args:
-            kwargs: Passed to super class.
-        Keyword Args:
-            cls (type): A class that will be instantiated with cls_args
+            cls (type, optional): A class that will be instantiated with cls_args
                 cls_kwargs, to be used as the server's object.
-            obj (object): Some object that will be registered on a Pyro4.Daemon.
-            cls_args (tuple/list): Arguments passed to cls.
-            cls_kwargs (dict): Keyword Arguments passed to cls.
-            name (str): server name
-            logfile (str): path to server's logfile
-            logger (logging.getLogger): logging instance.
+            obj (object, optional): Some object that will be registered on a Pyro4.Daemon.
+            cls_args (tuple/list, optional): Arguments passed to cls.
+            cls_kwargs (dict, optional): Keyword Arguments passed to cls.
+            name (str, optional): server name
+            logfile (str, optional): path to server's logfile
+            logger (logging.getLogger, optional): logging instance.
+            kwargs: Passed to super class.
         """
         super(Pyro4Server, self).__init__(**kwargs)
         if not logger: logger = logging.getLogger(module_logger.name +
@@ -114,6 +114,7 @@ class Pyro4Server(EventEmitter):
     def _instantiate_cls(self, cls, *args, **kwargs):
         """
         Create an instance of a class, given some arguments and keyword arguments.
+
         Args:
             cls (type): a class to be instantiated
             args: passed to cls
@@ -131,16 +132,12 @@ class Pyro4Server(EventEmitter):
     @config.expose
     @property
     def logfile(self):
-        """
-        Make logfile attribute accessible to a proxy corresponding to this server.
-        """
+        """Make logfile attribute accessible to a proxy corresponding to this server."""
         return self._logfile
 
     @config.expose
     def running(self):
-        """
-        Get running status of server
-        """
+        """Get running status of server"""
         with self.lock:
             return self._running
 
@@ -350,7 +347,6 @@ class Pyro4Server(EventEmitter):
             else:
                 status = "method {} is not an server method".format(method_name)
                 result = None
-            print({"status":status, "result":result})
             return jsonify(data={"status":status, "result":result})
 
         return app, server

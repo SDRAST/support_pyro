@@ -26,6 +26,7 @@ module_logger = logging.getLogger(__name__)
 class PublisherThread(PausableThread):
     """
     A thread whose 'target' gets called repeatedly until told to pause or stop.
+
     Attributes:
         event_emitter (EventEmitter): Whenever the threads private threading.Events
             are `set` or `clear`ed, the emitter indicates as such.
@@ -71,22 +72,21 @@ class ContextualizedPublisherThread(PublisherThread):
     those connections outside the thread and passing them to the thread instance.
     Example:
 
-    ```python
-    # contextualized_publisher_thread_example.py
-    import time
-    import json
+    .. code-block:: python
+        # contextualized_publisher_thread_example.py
+        import time
+        import json
 
-    import zmq
+        import zmq
 
-    def publish():
-        time.sleep(1.0) # publish every second
-        return "hello"
+        def publish():
+            time.sleep(1.0) # publish every second
+            return "hello"
 
-    context = zmq.Context.instance()
-    serializer = json
-    contextualized_publisher_thread = ContextualizedPublisherThread(context, serializer, target=publish)
-    contextualized_publisher_thread.start()
-    ```
+        context = zmq.Context.instance()
+        serializer = json
+        contextualized_publisher_thread = ContextualizedPublisherThread(context, serializer, target=publish)
+        contextualized_publisher_thread.start()
 
     Attributes:
         context (zmq.Context.instance): zmq context
@@ -152,6 +152,7 @@ class Publisher(object):
     Publisher base class. The start_publishing, pause_publishing,
     unpause_publishing, stop_publishing and publish methods are meant to be
     reimplemented in child classes.
+
     Attributes:
         lock (threading.Lock): lock for thread safety
         publisher_thread (thread-like object): a thread-like object where the
@@ -225,9 +226,9 @@ class ZmqPublisher(Publisher):
     """
     def __init__(self,name=None, serializer=Pyro4.config.SERIALIZER):
         """
-        Keyword Args:
-            name (str): passed to super class (None)
-            serialize (serializer like object): Some object with `dumps` method (Pyro4.config.SERIALIZER)
+        Args:
+            name (str, optional): passed to super class (None)
+            serialize (serializer like object, optional): Some object with `dumps` method (Pyro4.config.SERIALIZER)
         """
         super(ZmqPublisher, self).__init__(name=name)
         self.context = zmq.Context.instance()
@@ -250,9 +251,10 @@ class ZmqPublisher(Publisher):
     def start_publishing(self, host="localhost", port=0):
         """
         Start publishing. This can either be called server side or client side.
-        Keyword Args:
-            host (str): publishing host
-            port (int): publishing port
+
+        Args:
+            host (str, optional): publishing host
+            port (int, optional): publishing port
         """
         def publisher_thread_factory(host, port):
             publisher_thread = ContextualizedPublisherThread(
@@ -344,34 +346,35 @@ class SingleSocketPublisherManager(Publisher):
 
     Example:
 
-    ```python
-    # example_single_socket_publisher_manager
+    .. code-block:: python
 
-    from support.pyro import zmq
+        # example_single_socket_publisher_manager
 
-    class MyPublisher(zmq.Publisher):
-        def __init__(self,n,*args, **kwargs):
-            super(MyPublisher, self).__init__(*args, **kwargs)
-            self.n = n
+        from support.pyro import zmq
 
-        def publish(self):
-            return "hello from {}".format(n)
+        class MyPublisher(zmq.Publisher):
+            def __init__(self,n,*args, **kwargs):
+                super(MyPublisher, self).__init__(*args, **kwargs)
+                self.n = n
 
-    class MySingleSocketPublisher(SingleSocketPublisherManager):
-        def __init__(self,**kwargs):
-            super(MySingleSocketPublisher).__init__(**kwargs)
-            self.publishers = [
-                MyPublisher(i) for i in xrange(10)
-            ]
+            def publish(self):
+                return "hello from {}".format(n)
 
-    pub = MySingleSocketPublisher()
-    pub.start_publishing()
-    # OR:
-    pub = SingleSocketPublisherManager()
-    pub.publishers = [
-        MyPublisher(i) for i in xrange(10)
-    ]
-    pub.start_publishing()
+        class MySingleSocketPublisher(SingleSocketPublisherManager):
+            def __init__(self,**kwargs):
+                super(MySingleSocketPublisher).__init__(**kwargs)
+                self.publishers = [
+                    MyPublisher(i) for i in xrange(10)
+                ]
+
+        pub = MySingleSocketPublisher()
+        pub.start_publishing()
+        # OR:
+        pub = SingleSocketPublisherManager()
+        pub.publishers = [
+            MyPublisher(i) for i in xrange(10)
+        ]
+        pub.start_publishing()
 
     Attributes:
         publishers (list): list of publisher objects

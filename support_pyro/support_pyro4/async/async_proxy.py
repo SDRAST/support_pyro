@@ -7,6 +7,9 @@ import inspect
 
 import Pyro4
 
+from .async_client import AsyncClient
+from .async_callback import async_callback
+
 __all__ = ["AsyncProxy"]
 
 pyro4_version_info = Pyro4.__version__.split(".")
@@ -20,46 +23,49 @@ class AsyncProxy(Pyro4.core.Proxy):
     This is for passing callbacks to servers, such that the server can call
     client-side functions. This will register functions/methods on the fly.
 
-    Say we have some server implemented as follows:
+    Examples:
 
-    ```python
-    # async_server.py
-    from support.pyro import async
+    .. code-block:: python
 
-    class AsyncServer(object):
+        # async_server.py
+        from support.pyro import async
 
-        @async.async_method
-        def async_method(self, *args):
-            self.async_method.cb(args) # bounce back whatever is sent
+        class AsyncServer(object):
 
-    async_server = AsyncServer()
-    async_server.launch_server(ns=False,objectId="AsyncServer",objectPort=9092)
-    ```
+            @async.async_method
+            def async_method(self, *args):
+                self.async_method.cb(args) # bounce back whatever is sent
+
+        async_server = AsyncServer()
+        async_server.launch_server(ns=False,objectId="AsyncServer",objectPort=9092)
 
     We could access this server as follows:
 
-    ```python
-    # async_client.py
+    .. code-block:: python
 
-    def handler(res):
-        print("Got {} from server!".format(res))
+        # async_client.py
 
-    async_client = AsyncProxy("PYRO:AsyncServer@localhost:9092")
-    async_client.async_method(5,callback=handler)
-    while True:
-        pass
-    ```
+        def handler(res):
+            print("Got {} from server!".format(res))
+
+        async_client = AsyncProxy("PYRO:AsyncServer@localhost:9092")
+        async_client.async_method(5,callback=handler)
+        while True:
+            pass
+
     Note that the last bit is necessary if running inside a script, otherwise
     the client program will exit before the handler function can be called.
 
     This is not meant to be subclassed directly. Instead, if you'd like to
     access proxy methods/properties in a "Client" class, do so as follows:
 
-    class Client(object):
-        def __init__(self, uri):
-            self.proxy = AsyncProxy(uri)
-        def __getattr__(self, attr):
-            return getattr(self.proxy, attr)
+    .. code-block:: python
+
+        class Client(object):
+            def __init__(self, uri):
+                self.proxy = AsyncProxy(uri)
+            def __getattr__(self, attr):
+                return getattr(self.proxy, attr)
 
     Attributes:
         __asyncAttributes (frozenset): List of protected attributes.
@@ -77,7 +83,7 @@ class AsyncProxy(Pyro4.core.Proxy):
         """
         Args:
             uri (str/Pyro4.URI): passed to Pyro4.core.Proxy
-            daemon_details (dict): Register the AsyncProxy on some prexisting
+            daemon_details (dict, optional): Register the AsyncProxy on some prexisting
                 Daemon.
         """
         Pyro4.core.Proxy.__init__(self, uri)
@@ -172,6 +178,7 @@ class AsyncProxy(Pyro4.core.Proxy):
     def register(self, *fn_or_objs):
         """
         Register a function (not a method) with the AsyncProxy.
+
         Args:
             fn_or_objs (list/callable): a list of functions or objects, or
                 a single function or object. The function will get wrapped up
@@ -214,6 +221,7 @@ class AsyncProxy(Pyro4.core.Proxy):
         """
         Given some function name, look it up in self._asyncHandlers, and
         return the object to which it refers.
+
         Args:
             fn_or_obj (str/function/object): The name of a function, the
                 function itself, or an object.
@@ -244,16 +252,18 @@ class AsyncProxy(Pyro4.core.Proxy):
         Given some string (corresponding to a function in the global scope),
         a function object, or a method, return the corresponding registered
         object.
+
         Args:
             callback (callable/str): Some callback object, or the name of
                 some callback.
         Returns:
-            dict: "obj": Either the function itself, or the object from which
-                        a method comes.
-                  "method": The name of the function
+            dict: dictionary with the following keys/values:
+                * "obj": Either the function itself, or the object from which
+                    a method comes.
+                * "method": The name of the function
         """
         module_logger.debug("lookup_function_or_method: type(callback) {}".format(callback))
-        if isinstance(callback,str):
+        if hasattr(callback, "format"):
             # attempt to find the callback in the global context
             callback_obj = globals()[callback]
             method_name = callback
@@ -263,13 +273,14 @@ class AsyncProxy(Pyro4.core.Proxy):
         elif inspect.isfunction(callback):
             callback_obj = callback
             method_name = callback.__name__
-        
+
 
         return {"obj":callback_obj, "method":method_name}
 
     def unregister(self, fn_or_obj):
         """
-        Remove an object from self._asyncHandlers and the _daemon attribute
+        Remove an object from self._asyncHandlers and the _daemon attribute.
+
         Args:
             fn_or_obj (str/function/object): The name of a function, the
                 function itself, or an object.
@@ -289,10 +300,11 @@ class AsyncProxy(Pyro4.core.Proxy):
                     "unregister: Didn't unregister object {} from daemon".format(obj)
                 )
 
-    def wait_for_callback(self, callback):
+    def wait(self, callback):
         """
         Given some callback registered with the AsnycProxy to be called.
         If there are any return values from the callback, return those.
+
         Args:
             callback (callable/str):
         Returns:
@@ -301,38 +313,44 @@ class AsyncProxy(Pyro4.core.Proxy):
         res = self.lookup_function_or_method(callback)
         method_name = res["method"]
         obj, _ = self.lookup(res["obj"])[0]
-        callback = getattr(obj, method_name)
-
-        while not obj._called[method_name]:
-            pass
-
-        obj._called[method_name] = False
-        return obj._res[method_name]
+        return obj.wait(method_name)
 
     @staticmethod
-    def create_handler_class(fn):
+    def create_handler_class(func):
         """
-        From a non instance method function, create a wrapper class
-        Args:
-            fn (callable): A function that will get exposed and wrapped in a class.
-        """
-        assert inspect.isfunction(fn), "{} should be of type function, not {}".format(fn, type(fn))
-        module_logger.debug("AsyncProxy.create_handler_class: Creating handler class for function {}".format(fn))
+        From a non instance method function, create a wrapper class.
 
-        @functools.wraps(fn)
-        def fn_wrapper(self, *args, **kwargs):
-            self._called[fn.__name__] = True
-            res = fn(*args, **kwargs)
-            self._res[fn.__name__] = res
+        Args:
+            func (callable): A function that will get exposed and wrapped in a class.
+        """
+        assert inspect.isfunction(func), "{} should be of type function, not {}".format(func, type(func))
+        module_logger.debug("AsyncProxy.create_handler_class: Creating handler class for function {}".format(func))
+
+        # @functools.wraps(func)
+        # def func_wrapper(self, *args, **kwargs):
+        #     self._called[func.__name__] = True
+        #     res = func(*args, **kwargs)
+        #     self._res[func.__name__] = res
+        #     return res
+        #
+        # # exposed_wrapper = Pyro4.expose(func_wrapper)
+        #
+        # class Handler(object):
+        #     def __init__(self):
+        #         self._called = {func.__name__: False}
+        #         self._res = {func.__name__: None}
+        #
+        # # setattr(Handler, func.__name__, exposed_wrapper)
+        # setattr(Handler, func.__name__, async_callback(func_wrapper))
+
+        @functools.wraps(func)
+        def method_wrapper(self,*args,**kwargs):
+            res = func(*args, **kwargs)
             return res
 
-        exposed_wrapper = Pyro4.expose(fn_wrapper)
+        class Handler(AsyncClient):
+            pass
 
-        class Handler(object):
-            def __init__(self):
-                self._called = {fn.__name__: False}
-                self._res = {fn.__name__: None}
-
-        setattr(Handler, fn.__name__, exposed_wrapper)
-        Handler.__name__ = fn.__name__ # not sure this is the best solution
+        setattr(Handler, func.__name__, async_callback(method_wrapper))
+        Handler.__name__ = func.__name__ # not sure this is the best solution
         return Handler

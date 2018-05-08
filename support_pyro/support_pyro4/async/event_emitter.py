@@ -13,15 +13,15 @@ class EventEmitter(object):
     """
     class to execute one or more functions when an event occurs
 
-    Attributes::
-      _handlers - functions associated with events
-      _lock     - locks the thread
-      threaded  - this emitter works in a thread if True (default)
+    Attributes:
+      _handlers (list): functions associated with events
+      _lock (threading.Lock): locks the thread
+      threaded (bool): this emitter works in a thread if True (default)
     """
     def __init__(self, threaded=True):
         """
-        @param threaded : execute the event in a thread
-        @type  threaded : bool
+        Args:
+            threaded (bool, optional): execute the event in a thread
         """
         self.threaded = threaded
         self._lock = threading.Lock()
@@ -42,7 +42,11 @@ class EventEmitter(object):
         def emitter():
             if event_name in self._handlers:
                 handlers_to_remove = []
-                for handler in self._handlers[event_name]:
+                for handler_dict in self._handlers[event_name]:
+                    handler = handler_dict["handler"]
+                    once = handler_dict["once"]
+                    if once:
+                        handlers_to_remove.append(handler_dict)
                     with self._lock:
                         module_logger.debug(
                             "emit: handler {} for event {}".format(handler,event_name)
@@ -57,17 +61,17 @@ class EventEmitter(object):
                             # this means that we're attempting to call a handler
                             # that was registered from proxy that we're no longer
                             # connected to.
-                            handlers_to_remove.append(handler)
+                            handlers_to_remove.append(handler_dict)
                 self._cleanup(event_name, handlers_to_remove)
 
         if self.threaded:
             t = threading.Thread(target=emitter)
-            t.daemon = True
+            t.daemon = False
             t.start()
         else:
             emitter()
 
-    def on(self, event_name, callback):
+    def on(self, event_name, callback, once=False):
         """
         register a handler for an event
 
@@ -83,7 +87,12 @@ class EventEmitter(object):
         with self._lock:
             if event_name not in self._handlers:
                 self._handlers[event_name] = []
-            self._handlers[event_name].append(callback)
+            self._handlers[event_name].append({"handler":callback, "once":once})
+
+    def once(self, *args):
+        """register a handler for an event. Once it gets called, it gets removed.
+        """
+        self.on(*args, once=True)
 
     def _cleanup(self, event, handlers_to_remove):
         """

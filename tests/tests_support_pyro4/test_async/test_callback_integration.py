@@ -7,15 +7,16 @@ import Pyro4
 
 from ... import setup_logging
 from support_pyro.support_pyro4.async.async_proxy import AsyncProxy
-from . import test_case_factory, SimpleAsyncServer
+from . import SimpleAsyncServer
+from .. import test_case_with_server
 
 module_logger = logging.getLogger(__name__)
 
-class TestCallbackIntegration(test_case_factory(SimpleAsyncServer)):
+class TestCallbackIntegration(test_case_with_server(SimpleAsyncServer)):
 
     def setUp(self):
         self.logger = logging.getLogger("TestCallbackIntegration")
-        self.proxy = AsyncProxy("PYRO:SimpleAsyncServer@localhost:55000")
+        self.proxy = AsyncProxy(self.uri)
 
     def tearDown(self):
         self.proxy.shutdown()
@@ -36,7 +37,7 @@ class TestCallbackIntegration(test_case_factory(SimpleAsyncServer)):
         called["handler"] = False
         self.proxy.shutdown()
 
-        self.proxy = AsyncProxy("PYRO:SimpleAsyncServer@localhost:55000")
+        self.proxy = AsyncProxy(self.uri)
         self.proxy.ping_with_response(callback=handler)
         while not called["handler"]:
             pass
@@ -101,7 +102,7 @@ class TestCallbackIntegration(test_case_factory(SimpleAsyncServer)):
                 self.test_case.assertTrue(res == "hello")
 
         callbacks = Callbacks()
-        proxy = AsyncProxy("PYRO:SimpleAsyncServer@localhost:55000")
+        proxy = AsyncProxy(self.uri)
         proxy.ping_with_response(callback=callbacks.callback1)
         proxy.ping_with_response(callback=callbacks.callback2)
 
@@ -109,7 +110,7 @@ class TestCallbackIntegration(test_case_factory(SimpleAsyncServer)):
             pass
 
     def test_callback_integration_no_callback(self):
-        proxy = AsyncProxy("PYRO:SimpleAsyncServer@localhost:55000")
+        proxy = AsyncProxy(self.uri)
         proxy.ping_with_response()
 
 

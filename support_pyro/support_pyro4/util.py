@@ -19,6 +19,7 @@ def iterative_run(run_fn):
     A decorator for running functions repeatedly inside a PausableThread.
     Allows one to pause and stop the thread while its repeatedly calling
     the overridden run function.
+
     Args:
         run_fn (callable): the overridden run function from PausableThread
     Returns:
@@ -39,8 +40,9 @@ def iterative_run(run_fn):
 
 class Pause(object):
     """
-	A context manager for pausing threads.
-    This starts by pausing input thread(s) and unpausing them when
+    A context manager for pausing threads.
+
+    This starts by pausing and input thread or threads and unpausing them when
     code inside block has been called.
 
     Attributes:
@@ -99,7 +101,8 @@ class Pause(object):
 class PausableThread(threading.Thread):
     """
     A pausable, stoppable thread.
-	It also has a running flag that can be used to determine if the process is still running.
+
+    It also has a running flag that can be used to determine if the process is still running.
     This is meant to be subclassed.
 
     Attributes:
@@ -116,8 +119,8 @@ class PausableThread(threading.Thread):
     def __init__(self, *args, **kwargs):
         """
         Args:
-            args: passed to super class
-            kwargs: passed to super class
+            *args: passed to super class
+            **kwargs: passed to super class
 		"""
         name = kwargs.pop("name","PausableThread")
         logger = kwargs.pop("logger",None)

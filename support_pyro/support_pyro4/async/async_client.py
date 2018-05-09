@@ -3,6 +3,8 @@ import contextlib
 import inspect
 import time
 
+import Pyro4
+
 __all__ = ["AsyncClient"]
 
 module_logger = logging.getLogger(__name__)
@@ -21,8 +23,8 @@ class AsyncClient(object):
 
         class MyAsyncClient(async.AsyncClient):
 
-            def __init__(self):
-                super(MyAsyncClient, self).__init__()
+            def __init__(self, **kwargs):
+                super(MyAsyncClient, self).__init__(**kwargs)
 
             @async.async_callback
             def async_method(self):
@@ -32,11 +34,28 @@ class AsyncClient(object):
                 pass
 
     """
-    def __init__(self):
+    def __init__(self, uri_or_proxy=None, proxy_class=None):
         self._async_methods = self._get_async_methods()
         self._called = {name[0]:False for name in self._async_methods}
         self._calls = {name[0]:0 for name in self._async_methods}
         self._res = {name[0]:None for name in self._async_methods}
+        if proxy_class is None:
+            from .async_proxy import AsyncProxy
+            proxy_class = AsyncProxy
+
+        proxy = None
+        if uri_or_proxy is not None:
+            if isinstance(uri_or_proxy, Pyro4.core.URI) or hasattr(uri_or_proxy, "format"):
+                proxy = proxy_class(uri_or_proxy)
+            else:
+                proxy = uri_or_proxy
+        self.proxy = proxy
+
+    def __getattr__(self, attr):
+        if self.proxy is not None:
+            return getattr(self.proxy, attr)
+        else:
+            super(AsyncClient, self).__getattr__(attr)
 
     def _get_async_methods(self):
         """

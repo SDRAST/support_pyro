@@ -73,6 +73,7 @@ class ContextualizedPublisherThread(PublisherThread):
     Example:
 
     .. code-block:: python
+
         # contextualized_publisher_thread_example.py
         import time
         import json
@@ -101,10 +102,9 @@ class ContextualizedPublisherThread(PublisherThread):
         Args:
             context (zmq.Context.instance): zmq context
             serializer (object): some object with a "dumps" method
-            kwargs: passed to super class
-        Keyword Args:
-            host (str): publisher host ("localhost")
-            port (int): publisher port (0)
+            host (str, optional): publisher host. Defaults to "localhost"
+            port (int, optional): publisher port. Defaults to 0 (random).
+            **kwargs: passed to super class
         """
         super(ContextualizedPublisherThread, self).__init__(**kwargs)
         self.context = context
@@ -134,6 +134,7 @@ class ContextualizedPublisherThread(PublisherThread):
 class SingleSocketPublisherThread(PublisherThread):
     """
     Push the results of the publishing function to a queue.
+
     Attributes:
         queue (Queue.Queue): A FIFO thread-safe queue.
     """
@@ -198,25 +199,63 @@ class Publisher(object):
         return self._publishing_paused
 
     def start_publishing(self, *args, **kwargs):
+        """
+        Reimplement this in a child class.
+        Use this method to start publishing.
+        """
         raise NotImplementedError
 
     def pause_publishing(self, *args, **kwargs):
+        """
+        Reimplement this in a child class.
+        Use this method to pause publishing.
+        """
         raise NotImplementedError
 
     def unpause_publishing(self, *args, **kwargs):
+        """
+        Reimplement this in a child class.
+        Use this method to unpause an alreay paused publisher.
+        """
         raise NotImplementedError
 
     def stop_publishing(self, *args, **kwargs):
+        """
+        Reimplement this in a child class.
+        Use this method to stop a publisher that is running.
+        """
         raise NotImplementedError
 
     def publish(self):
+        """
+        Reimplement this in a child class.
+        This method defines the publishing action. This method
+        gets called repeatedly in the context of publishing threads.
+        """
         raise NotImplementedError
 
 @config.expose
 class ZmqPublisher(Publisher):
     """
     ZMQ Publisher base class. This is a publisher that is specifically
-    meant to send information over zmq sockets.
+    meant to send information over zmq sockets. This is meant to be subclassed,
+    and the ``publish`` method reimplemented.
+
+    Examples:
+
+    .. code-block:: python
+
+        # basic_zmq_pub_sub.py
+
+        from support.pyro import zmq
+
+        class BasicZMQPublisher(zmq.ZmqPublisher):
+            def publish(self):
+                res = {"data":[random.random() for i in range(10)],
+                        "timestamp":datetime.datetime.utcnow()}
+                time.sleep(1.0)
+                print("publishing res: {}".format(res))
+                return res
 
     Attributes:
         context (zmq.Context.instance): zmq context
@@ -251,6 +290,30 @@ class ZmqPublisher(Publisher):
     def start_publishing(self, host="localhost", port=0):
         """
         Start publishing. This can either be called server side or client side.
+
+        Examples:
+
+        Server side:
+
+        .. code-block:: python
+
+            >>> publisher = SomeSubClassOfZmqPublisher()
+            >>> publisher.start_publishing()
+            >>> publisher.start_publishing(port=50001)
+
+        Client side:
+
+        Say we've got a server running that controls our publisher.
+        That server has some ``uri``.
+
+        .. code-block:: python
+
+            >>> proxy = Pyro4.Proxy(uri)
+            >>> sub = SomeSubClassOfZmqSubscriber(proxy)
+            >>> sub.start_publishing()
+
+        The above example will only start publishing -- it won't start
+        subscribing client side.
 
         Args:
             host (str, optional): publishing host
@@ -376,6 +439,11 @@ class SingleSocketPublisherManager(Publisher):
         ]
         pub.start_publishing()
 
+    In the above example, note that each publisher is a subclass of ``Publisher``,
+    not ``ZmqPublisher``. This is because we don't need the machinery to start, pause,
+    unpause, and stop publishers within each of the individual publishers -- the
+    SingleSocketPublisherManager subclass takes care of all that.
+
     Attributes:
         publishers (list): list of publisher objects
         queue (Queue.Queue): FIFO thread safe queue.
@@ -413,6 +481,12 @@ class SingleSocketPublisherManager(Publisher):
         A master thread, an instance of a ContextualizedPublisherThread, will then
         "get" the queue (remove the last element from the queue), and publish
         that to the socket.
+
+        Args:
+            host (str, optional): publishing host
+            port (int, optional): publishing port
+        Returns:
+            dict: message with publishing status and publishing address.
         """
         serializers = [pub._serializer for pub in self.publishers]
         assert all([s == serializers[0] for s in serializers[1:]]), "Serializers must be the same for all publishers"
@@ -487,7 +561,39 @@ class SingleSocketPublisherManager(Publisher):
 class MultiSocketPublisherManager(Publisher):
     """
     Manage many independent socket connections -- each publisher gets its
-    own socket connection
+    own socket connection. Usage is similar to SingleSocketPublisherManager.
+
+    Examples:
+
+    .. code-block:: python
+
+        class MyPublisher(zmq.ZmqPublisher):
+            def __init__(self,n,*args, **kwargs):
+                super(MyPublisher, self).__init__(*args, **kwargs)
+                self.n = n
+
+            def publish(self):
+                return "hello from {}".format(n)
+
+        class MyMultiSocketPublisher(MultiSocketPublisherManager):
+            def __init__(self,**kwargs):
+                super(MyMultiSocketPublisher).__init__(**kwargs)
+                self.publishers = [
+                    MyPublisher(i) for i in xrange(10)
+                ]
+
+        pub = MySingleSocketPublisher()
+        pub.start_publishing()
+        # OR:
+        pub = SingleSocketPublisherManager()
+        pub.publishers = [
+            MyPublisher(i) for i in xrange(10)
+        ]
+        pub.start_publishing()
+
+    Attributes:
+        publishers (list): List of publishers.
+        _publishing_addresses (dict): dictionary of individual publisher addresses.
     """
     def __init__(self,name=None):
         """
@@ -505,6 +611,21 @@ class MultiSocketPublisherManager(Publisher):
         Calling self._publisher_action("pause_publishing") is the same as
         iterating through each publisher and calling its respective
         "pause_publishing" method.
+
+        Examples:
+
+        .. code-block:: python
+
+            >>> publisher = MyMultiSocketPublisher()
+            >>> publisher._publisher_action("start_publishing")
+
+        The above is the same as the following:
+
+        .. code-block:: python
+
+            >>> publisher = MyMultiSocketPublisher()
+            >>> publisher.start_publishing()
+
         """
         res = {}
         for publisher in self.publishers:

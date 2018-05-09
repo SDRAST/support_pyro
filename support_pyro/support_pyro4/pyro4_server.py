@@ -204,28 +204,28 @@ class Pyro4Server(EventEmitter):
         registers it on some local or remote nameserver.
 
         The if objectId, objectPort and objectHost are full specified, the daemon
-        this method creates will look as follows:
-            "PYRO:<objectId>@<objectHost>:<objectPort>"
+        this method creates will look as follows: "PYRO:<objectId>@<objectHost>:<objectPort>"
 
-        Keyword Args:
-            threaded (bool): If true, launch server on a thread. Otherwise,
+        Args:
+            threaded (bool, optional): If true, launch server on a thread. Otherwise,
                 launch server on main thread. (False)
-            reverse (bool): Create revese tunnel. (False)
-            objectId (str): The id for this object's daemon. (None)
-            objectPort (int): The daemon's port. (0, or random)
-            objectHost (str): The daemon's host. ("localhost")
-            local (bool): Whether or not to create SSH tunnel to some remote
+            reverse (bool, optional): Create revese tunnel. (False)
+            objectId (str, optional): The id for this object's daemon. (None)
+            objectPort (int, optional): The daemon's port. (0, or random)
+            objectHost (str, optional): The daemon's host. ("localhost")
+            local (bool, optional): Whether or not to create SSH tunnel to some remote
                 server. If True, doesn't create tunnels. (True)
-            ns (bool): Whether or not to attempt to register object's daemon
+            ns (bool, optional): Whether or not to attempt to register object's daemon
                 on a nameserver (True)
-            tunnel_kwargs (dict): used to create tunnel instance, or used
+            tunnel_kwargs (dict, optional): used to create tunnel instance, or used
                 as parameters to find nameserver (None)
 
         Returns:
-            dict: "daemon" (Pyro4.Daemon): The server's daemon
-                  "thread" (threading.Thread or None): If threaded, a instance of threading.Thread
-                    running the daemon's requestLoop. If not, None.
-                  "uri" (Pyro4.URI): The daemon's uri
+            dict:
+                * "daemon" (Pyro4.Daemon): The server's daemon
+                * "thread" (threading.Thread or None): If threaded, a instance of ``threading.Thread``
+                  running the daemon's requestLoop. If not, None.
+                * "uri" (Pyro4.URI): The daemon's uri
         """
         if tunnel_kwargs is None: tunnel_kwargs = {}
         daemon = Pyro4.Daemon(port=objectPort, host=objectHost)
@@ -306,9 +306,10 @@ class Pyro4Server(EventEmitter):
                 as paramters to instantiate an object of implicit cls.
             kwargs (dict): Passed to implicit cls.
         Returns:
-            app (Flask): Flask app
-            server (object): some object whose methods/attributes have been
-                registered as routes on app.
+            tuple:
+                * app (Flask): Flask app
+                * server (object): some object whose methods/attributes have been
+                  registered as routes on app.
         """
         import json
         from flask import Flask, jsonify, request
@@ -364,11 +365,12 @@ class Pyro4Server(EventEmitter):
                 this object's exposed methods. Otherwise, use args and kwargs
                 as paramters to instantiate an object of implicit cls.
             kwargs (dict): Passed to implicit cls.
+
         Returns:
-            app (Flask): Flask app
-            socketio (SocketIO): flask_socketio.SocketIO instance.
-            server (object): object whose methods have been registered as
-                socket routes.
+            tuple:
+                * app (Flask): Flask app
+                * socketio (SocketIO): flask_socketio.SocketIO instance.
+                * server (object): object whose methods have been registered as socket routes.
         """
         import json
         from flask import Flask, jsonify, request

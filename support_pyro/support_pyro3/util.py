@@ -12,14 +12,20 @@ import Pyro.errors
 import time
 import logging
 import numpy
-import os, os.path
+import os
 import atexit
 import socket
 import sys
 
 from support import NamedClass
 from support.local_dirs import log_dir
-from support.logs import set_module_loggers, initiate_option_parser,init_logging, get_loglevel, set_loglevel
+from support.logs import (
+    set_module_loggers,
+    initiate_option_parser,
+    init_logging,
+    get_loglevel,
+    set_loglevel
+)
 from support.network import get_domain, get_local_network
 import support.tunneling as T
 
@@ -41,7 +47,8 @@ try:
   if not os.path.exists(pyro_log_dir):
     os.makedirs(pyro_log_dir)
 except OSError as err:
-  module_logger.error("Couldn't create {}".format(pyro_log_dir))
+  pass
+  # module_logger.error("Couldn't create {}".format(pyro_log_dir))
 
 nameserver = None
 
@@ -50,8 +57,9 @@ __all__ = [
     "PyroTaskClient", "NameserverResource",
     "pyro_server_request", "pyro_server_details",
     "cleanup_tunnels", "get_nameserver", "get_device_server",
-    "launch_server","pyro_server_name","full_name", "nameserver"
+    "launch_server", "pyro_server_name", "full_name", "nameserver"
 ]
+
 
 class PyroServer(Pyro.core.ObjBase):
   """

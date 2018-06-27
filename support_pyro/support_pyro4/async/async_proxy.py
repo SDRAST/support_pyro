@@ -7,7 +7,7 @@ import inspect
 
 import Pyro4
 
-from .async_client import AsyncClient
+from .async_callback_manager import AsyncCallbackManager
 from .async_callback import async_callback
 
 __all__ = ["AsyncProxy"]
@@ -109,12 +109,12 @@ class AsyncProxy(Pyro4.core.Proxy):
         """Make sure that we can access the custom __asyncAttributes"""
         if name in AsyncProxy.__asyncAttributes:
             return super(Pyro4.core.Proxy, self).__getattribute__(name)
-        return Pyro4.core.Proxy.__getattr__(self,name)
+        return Pyro4.core.Proxy.__getattr__(self, name)
 
     def __setattr__(self, name, value):
         """Make sure that we can access the custom __asyncAttributes"""
         if name in AsyncProxy.__asyncAttributes:
-            return object.__setattr__(self,name,value)
+            return object.__setattr__(self, name, value)
         return Pyro4.core.Proxy.__setattr__(self, name, value)
 
     def _pyroInvoke(self, methodname, vargs, kwargs, flags=0, objectId=None):
@@ -123,7 +123,10 @@ class AsyncProxy(Pyro4.core.Proxy):
         kwargs dictionary to automatically include a reference to the
         self._asyncHandler attribute.
         """
-        module_logger.debug("_pyroInvoke: Called. methodname: {}, vargs: {}, kwargs: {}".format(methodname, vargs, kwargs))
+        module_logger.debug(
+            ("_pyroInvoke: "
+             "methodname: {}, vargs: {}, kwargs: {}").format(
+             methodname, vargs, kwargs))
         if kwargs is not None:
             callback = None
             for key in ["callback", "cb_info", "cb"]:
@@ -145,13 +148,15 @@ class AsyncProxy(Pyro4.core.Proxy):
                 callback_dict["cb"] = method_name
                 kwargs["cb_info"] = callback_dict
 
-        module_logger.debug("_pyroInvoke: calling super, methodname: {}, vargs: {}, kwargs: {}".format(
-            methodname, vargs, kwargs
-        ))
+        module_logger.debug(
+            ("_pyroInvoke: "
+             "calling super, methodname: {}, vargs: {}, kwargs: {}").format(
+                methodname, vargs, kwargs))
+
         resp = super(AsyncProxy, self)._pyroInvoke(methodname,
-                                            vargs, kwargs,
-                                            flags=flags,
-                                            objectId=objectId)
+                                                   vargs, kwargs,
+                                                   flags=flags,
+                                                   objectId=objectId)
         module_logger.debug("_pyroInvoke: super called. resp: {}".format(resp))
         return resp
 
@@ -161,11 +166,18 @@ class AsyncProxy(Pyro4.core.Proxy):
 
     def register_handlers_with_daemon(self):
         """Register all the objects in _asyncHandlers with the _daemon attribute"""
-        module_logger.debug("register_handlers_with_daemon: self._daemon.objectsById (before): {}".format(list(self._daemon.objectsById.keys())))
-        module_logger.debug("register_handlers_with_daemon: self._asyncHandlers: {}".format(list(self._asyncHandlers.keys())))
+        module_logger.debug(
+            ("register_handlers_with_daemon: "
+             "self._daemon.objectsById (before): "
+             "{}").format(list(self._daemon.objectsById.keys())))
+        module_logger.debug(
+            ("register_handlers_with_daemon: "
+             "self._asyncHandlers: "
+             "{}").format(list(self._asyncHandlers.keys())))
         for objectId in self._asyncHandlers:
             obj = self._asyncHandlers[objectId]["object"]
-            if objectId not in self._daemon.objectsById and not hasattr(obj, "_pyroId"):
+            if (objectId not in self._daemon.objectsById
+                and not hasattr(obj, "_pyroId")):
                 module_logger.debug(
                     "register_handlers_with_daemon: Registering object {} with objectId {}...".format(
                         obj.__class__.__name__, objectId[4:11]
@@ -274,8 +286,7 @@ class AsyncProxy(Pyro4.core.Proxy):
             callback_obj = callback
             method_name = callback.__name__
 
-
-        return {"obj":callback_obj, "method":method_name}
+        return {"obj": callback_obj, "method": method_name}
 
     def unregister(self, fn_or_obj):
         """
@@ -297,7 +308,8 @@ class AsyncProxy(Pyro4.core.Proxy):
                 self._daemon.unregister(objectId)
             else:
                 module_logger.debug(
-                    "unregister: Didn't unregister object {} from daemon".format(obj)
+                    ("unregister: "
+                     "Didn't unregister object {} from daemon").format(obj)
                 )
 
     def wait(self, callback):
@@ -348,9 +360,9 @@ class AsyncProxy(Pyro4.core.Proxy):
             res = func(*args, **kwargs)
             return res
 
-        class Handler(AsyncClient):
+        class Handler(AsyncCallbackManager):
             pass
 
         setattr(Handler, func.__name__, async_callback(method_wrapper))
-        Handler.__name__ = func.__name__ # not sure this is the best solution
+        Handler.__name__ = func.__name__  # not sure this is the best solution
         return Handler

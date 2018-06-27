@@ -8,11 +8,18 @@ import Pyro4
 from Pyro4.util import SerializerBase
 import six
 
-__all__ = ["iterative_run", "Pause",
-           "PausableThread", "PausableThreadCallback",
-           "blocking", "non_blocking","register_socket_error"]
+__all__ = [
+    "iterative_run",
+    "Pause",
+    "PausableThread",
+    "PausableThreadCallback",
+    "blocking",
+    "non_blocking",
+    "register_socket_error"
+]
 
 module_logger = logging.getLogger(__name__)
+
 
 def iterative_run(run_fn):
     """
@@ -38,6 +45,7 @@ def iterative_run(run_fn):
                 self._running_event.clear()
     return wrapper
 
+
 class Pause(object):
     """
     A context manager for pausing threads.
@@ -49,13 +57,13 @@ class Pause(object):
         thread (dict): A collection of threads to pause and unpause.
         init_pause_status (dict): The initial state of the threads in
             the thread attribute.
-	"""
+    """
     def __init__(self, pausable_thread):
         """
-		Args:
-		    pausable_thread (list, PausableThread): An instance, or list of
+        Args:
+        pausable_thread (list, PausableThread): An instance, or list of
                 instances of PausableThread. We can optionally pass None.
-		"""
+            """
         self.thread = pausable_thread
         if not isinstance(self.thread, dict):
             self.thread = {'thread': self.thread}
@@ -70,9 +78,9 @@ class Pause(object):
 
     def __enter__(self):
         """
-		Pause the thread in quesiton, and make sure that whatever
-		functionality is being performing is actually stopped.
-		"""
+        Pause the thread in quesiton, and make sure that whatever
+        functionality is being performing is actually stopped.
+        """
         for name in self.thread.keys():
             t = self.thread[name]
             if t:
@@ -98,12 +106,13 @@ class Pause(object):
             else:
                 pass
 
+
 class PausableThread(threading.Thread):
     """
     A pausable, stoppable thread.
 
-    It also has a running flag that can be used to determine if the process is still running.
-    This is meant to be subclassed.
+    It also has a running flag that can be used to determine if the process
+    is still running. This is meant to be subclassed.
 
     Attributes:
         name (str): name of thread, if any
@@ -115,20 +124,19 @@ class PausableThread(threading.Thread):
         _stop_event (threading.Event): setting this stops thread.
         _running_event (threading.Event): setting this indicates thread is
             currently executing "run" method.
-	"""
+    """
     def __init__(self, *args, **kwargs):
         """
         Args:
             *args: passed to super class
             **kwargs: passed to super class
-		"""
-        name = kwargs.pop("name","PausableThread")
-        logger = kwargs.pop("logger",None)
+        """
+        name = kwargs.pop("name", "PausableThread")
+        logger = kwargs.pop("logger", None)
         super(PausableThread, self).__init__(*args, **kwargs)
         if logger is None:
-            self.logger = logging.getLogger("{}.{}".format(module_logger.name, name))
-        else:
-            self.logger = logger
+            self.logger = module_logger.getChild(name)
+        self.logger = logger
         self.name = name
         self.daemon = True
         self._lock = threading.Lock()
@@ -139,8 +147,8 @@ class PausableThread(threading.Thread):
     def stop_thread(self):
         """
         Set self._stop_event
-		Stop the thread from running all together. Make
-		sure to join this up with threading.Thread.join()
+        Stop the thread from running all together. Make
+        sure to join this up with threading.Thread.join()
         """
         self._stop_event.set()
 
@@ -173,11 +181,12 @@ class PausableThread(threading.Thread):
     def running(self):
         return self._running_event.isSet()
 
+
 class PausableThreadCallback(PausableThread):
     """
-	A thread that runs the same callback over an over again.
-	This thread can be paused, unpaused, and stopped in a thread-safe manner.
-	"""
+    A thread that runs the same callback over an over again.
+    This thread can be paused, unpaused, and stopped in a thread-safe manner.
+    """
     def __init__(self, *args, **kwargs):
         super(PausableThreadCallback, self).__init__(self, *args, **kwargs)
         if sys.version_info[0] == 2:
@@ -221,6 +230,7 @@ class PausableThreadCallback(PausableThread):
     def running(self):
         return self._running_event.isSet()
 
+
 def blocking(func):
     """
     This decorator will make it such that the server can do
@@ -249,20 +259,25 @@ def non_blocking(func):
 
     return wrapper
 
+
 def socket_error_class_to_dict(obj):
     """Dictionary representation of socket.error"""
     return {
         "__class__": "socket.error"
     }
 
-def socket_error_dict_to_class(classname,*args):
+
+def socket_error_dict_to_class(classname, *args):
     """Reconstruct socket.error"""
     return socket.error(*args)
+
 
 def register_socket_error():
     """
     Register socket.error to Pyro4's SerializerBase so we can send
     socket.errors across Pyro4 connections.
     """
-    SerializerBase.register_dict_to_class("socket.error", socket_error_dict_to_class)
-    SerializerBase.register_class_to_dict(socket.error, socket_error_class_to_dict)
+    SerializerBase.register_dict_to_class(
+        "socket.error", socket_error_dict_to_class)
+    SerializerBase.register_class_to_dict(
+        socket.error, socket_error_class_to_dict)

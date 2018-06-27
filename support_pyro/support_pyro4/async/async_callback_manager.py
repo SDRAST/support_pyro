@@ -2,18 +2,18 @@ import logging
 import contextlib
 import inspect
 import time
+import functools
 
 import Pyro4
 
-__all__ = ["AsyncClient"]
+__all__ = ["AsyncCallbackManager"]
 
 module_logger = logging.getLogger(__name__)
 
-class AsyncClient(object):
+class AsyncCallbackManager(object):
     """
     Class that stores information about methods with the async.async_callback
     decorator.
-    This class is meant to be subclassed, not used on its own.
 
     Examples:
 
@@ -21,10 +21,10 @@ class AsyncClient(object):
 
         from support.pyro import async
 
-        class MyAsyncClient(async.AsyncClient):
+        class MyAsyncCallbackManager(async.AsyncCallbackManager):
 
             def __init__(self, **kwargs):
-                super(MyAsyncClient, self).__init__(**kwargs)
+                super(MyAsyncCallbackManager, self).__init__(**kwargs)
 
             @async.async_callback
             def async_method(self):
@@ -55,7 +55,7 @@ class AsyncClient(object):
         if self.proxy is not None:
             return getattr(self.proxy, attr)
         else:
-            super(AsyncClient, self).__getattr__(attr)
+            super(AsyncCallbackManager, self).__getattr__(attr)
 
     def _get_async_methods(self):
         """
@@ -75,6 +75,48 @@ class AsyncClient(object):
                     async_methods.append(method_pair)
         return async_methods
 
+    def register_callback(self, callback):
+        """
+        Register some function with the manager.
+
+        Examples:
+
+        .. code-block:: python
+
+            def handler(res):
+                return res
+
+            handler = my_manager_object.register(handler)
+
+        If we wanted, we could also use this as a decorator:
+
+        .. code-block:: python
+        
+            @my_manager_object.register
+            def handler(res):
+                return res
+
+        Args:
+            callback (callable): Some function
+        """
+        name = callback.__name__
+        self._called[name] = False
+        self._calls[name] = 0
+        self._res[name] = None
+
+        @funtools.wraps(callback)
+        def wrapper(*args, **kwargs):
+            res = callback(*args, **kwargs)
+            self._called[name] = True
+            self._calls[name] += 1
+            self._res[name] = res
+            return res
+        wrapper._asyncCallback = True
+        if name not in self._async_methods:
+            self._async_methods.append(name)
+
+        return wrapper
+
     @contextlib.contextmanager
     def wait(self, method_names, timeout=None):
         """
@@ -84,7 +126,7 @@ class AsyncClient(object):
 
         .. code-block:: python
 
-            class Client(async.AsyncClient):
+            class Client(async.AsyncCallbackManager):
 
                 @async.async_callback
                 def handler(self,res):

@@ -46,11 +46,13 @@ class _CallbackProxy(object):
                         module_logger.debug("_CallbackProxy.__init__: socket_info is not None")
                         app = socket_info['app']
                         socketio = socket_info['socketio']
+
                         def f(cb_name):
                             def emit_f(*args, **kwargs):
-                                with app.test_request_context("/"):
+                                # with app.test_request_context("/"):
+                                with app.app_context():
                                     # module_logger.debug("_CallbackProxy.__init__:f.emit_f: calling socket.emit")
-                                    socketio.emit(cb_name, {"args": args, "kwargs":kwargs})
+                                    socketio.emit(cb_name, {"args": args, "kwargs": kwargs})
                                     # module_logger.debug("_CallbackProxy.__init__:f.emit_f: socket.emit called")
                                 # socketio.sleep(0)
                             return emit_f
@@ -95,7 +97,7 @@ def async_method(func):
     Now client side, we would call ``long_running_method`` as follows:
 
     .. code-block:: python
-    
+
         # Here handler is some Pyro4.Daemon that has some methods/objects registered to it.
         client.long_running_method(*args,cb_info={'cb_handler':handler,
                                             "cb":"long_running_method_cb",
@@ -182,28 +184,30 @@ def async_method(func):
         """
         name = func.__name__
 
-        if name == "__init__": # We're decorating a class, namely a worker class
+        if name == "__init__":  # We're decorating a class, namely a worker class
             this = self
         else:
             this = wrapper
-        module_logger.debug("async.wrapper.{}: kwargs: {}".format(name, kwargs))
+        module_logger.debug(
+            "async.wrapper.{}: kwargs: {}".format(name, kwargs))
         cb_info = kwargs.pop("cb_info", None)
-
-        if 'socket_info' in kwargs:
-            socket_info = kwargs['socket_info']
-            kwargs.pop('socket_info')
-        else:
-            socket_info = None
+        socket_info = kwargs.pop('socket_info', None)
 
         this.cb_info = cb_info
         this.socket_info = socket_info
-        module_logger.debug("async.wrapper.{}: cb_info: {}".format(name, this.cb_info))
-        module_logger.debug("async.wrapper.{}: socket_info: {}".format(name, this.socket_info))
+        module_logger.debug("async.wrapper.{}: cb_info: {}".format(
+            name, this.cb_info))
+        module_logger.debug("async.wrapper.{}: socket_info: {}".format(
+            name, this.socket_info))
         cur_handler = getattr(self, "cb_handler", None)
         if this.cb_info:
             if "cb_handler" not in this.cb_info:
                 this.cb_info["cb_handler"] = cur_handler
-        async_cb = _CallbackProxy(cb_info=this.cb_info, socket_info=this.socket_info, func_name=name)
+        async_cb = _CallbackProxy(
+            cb_info=this.cb_info,
+            socket_info=this.socket_info,
+            func_name=name
+        )
         this.cb = async_cb.cb
         this.cb_updates = async_cb.cb_updates
         this.cb_handler = async_cb.cb_handler

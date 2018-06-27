@@ -4,12 +4,16 @@ import importlib
 
 import Pyro4
 
-from support_pyro.support_pyro4.async import AsyncClient, AsyncProxy, async_callback
+from support_pyro.support_pyro4.async import (
+    AsyncCallbackManager,
+    AsyncProxy,
+    async_callback
+)
 
 from . import SimpleAsyncServer
 from .. import test_case_with_server
 
-class AsyncClientSub(AsyncClient):
+class AsyncCallbackManagerSub(AsyncCallbackManager):
 
     @async_callback
     def method_async(self, res):
@@ -22,15 +26,15 @@ class AsyncClientSub(AsyncClient):
     def method_sync(self):
         pass
 
-class TestAsyncClient(test_case_with_server(SimpleAsyncServer)):
+class TestAsyncCallbackManager(test_case_with_server(SimpleAsyncServer)):
 
     def test_init(self):
-        client = AsyncClientSub()
+        client = AsyncCallbackManagerSub()
         self.assertTrue("method_async" in client._called)
         self.assertTrue("method_sync" not in client._called)
 
     def test_wait(self):
-        client = AsyncClientSub()
+        client = AsyncCallbackManagerSub()
         proxy = AsyncProxy(self.uri)
         with client.wait("method_async"):
             proxy.ping_with_response(callback=client.method_async)

@@ -10,6 +10,7 @@ __all__ = ["AsyncCallbackManager"]
 
 module_logger = logging.getLogger(__name__)
 
+
 class AsyncCallbackManager(object):
     """
     Class that stores information about methods with the async.async_callback
@@ -36,9 +37,9 @@ class AsyncCallbackManager(object):
     """
     def __init__(self, uri_or_proxy=None, proxy_class=None):
         self._async_methods = self._get_async_methods()
-        self._called = {name[0]:False for name in self._async_methods}
-        self._calls = {name[0]:0 for name in self._async_methods}
-        self._res = {name[0]:None for name in self._async_methods}
+        self._called = {name[0]: False for name in self._async_methods}
+        self._calls = {name[0]: 0 for name in self._async_methods}
+        self._res = {name[0]: None for name in self._async_methods}
         if proxy_class is None:
             from .async_proxy import AsyncProxy
             proxy_class = AsyncProxy
@@ -91,7 +92,7 @@ class AsyncCallbackManager(object):
         If we wanted, we could also use this as a decorator:
 
         .. code-block:: python
-        
+
             @my_manager_object.register
             def handler(res):
                 return res

@@ -3,7 +3,6 @@ import functools
 
 import six
 import Pyro4
-import gevent
 
 from .async_proxy import AsyncProxy
 from .event_emitter import EventEmitter, EventEmitterProxy

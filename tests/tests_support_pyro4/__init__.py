@@ -13,7 +13,7 @@ def test_case_with_server(server_class, *args, **kwargs):
             daemon = Pyro4.Daemon(port=0, host="localhost")
             uri = daemon.register(server, objectId=server_class.__name__)
             daemon_thread = threading.Thread(target=daemon.requestLoop)
-            daemon_thread.daemon = True
+            daemon_thread.daemon = False
             daemon_thread.start()
 
             cls.uri = uri

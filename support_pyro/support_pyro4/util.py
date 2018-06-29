@@ -8,17 +8,25 @@ import Pyro4
 from Pyro4.util import SerializerBase
 import six
 
-__all__ = ["iterative_run", "Pause",
-           "PausableThread", "PausableThreadCallback",
-           "blocking", "non_blocking","register_socket_error"]
+__all__ = [
+    "iterative_run",
+    "Pause",
+    "PausableThread",
+    "PausableThreadCallback",
+    "blocking",
+    "non_blocking",
+    "register_socket_error"
+]
 
 module_logger = logging.getLogger(__name__)
+
 
 def iterative_run(run_fn):
     """
     A decorator for running functions repeatedly inside a PausableThread.
-    Allows one to pause and stop the thread while it's repeatedly calling
-    the overridden run() function.
+    Allows one to pause and stop the thread while its repeatedly calling
+    the overridden run function.
+
     Args:
         run_fn (callable): the overridden run function from PausableThread
     Returns:
@@ -37,12 +45,13 @@ def iterative_run(run_fn):
                 self._running_event.clear()
     return wrapper
 
+
 class Pause(object):
     """
-	  A context manager for pausing threads.
-	  
-	  This makes sure that when we unpause the thread when we're done
-	  doing whatever task we needed.
+    A context manager for pausing threads.
+
+    This starts by pausing and input thread or threads and unpausing them when
+    code inside block has been called.
 
     Attributes:
         thread (dict): A collection of threads to pause and unpause.
@@ -71,10 +80,9 @@ class Pause(object):
 
     def __enter__(self):
         """
-		    Pause the thread
-		    
-		    Wait until the thread is actually stopped.
-		    """
+        Pause the thread in question, and make sure that whatever
+        functionality is being performing is actually stopped.
+        """
         for name in self.thread.keys():
             t = self.thread[name]
             if t:
@@ -108,6 +116,7 @@ class Pause(object):
             else:
                 pass
 
+
 class PausableThread(threading.Thread):
     """
     A pausable, stoppable thread.
@@ -140,9 +149,8 @@ class PausableThread(threading.Thread):
         logger = kwargs.pop("logger",None)
         super(PausableThread, self).__init__(*args, **kwargs)
         if logger is None:
-            self.logger = logging.getLogger("{}.{}".format(module_logger.name, name))
-        else:
-            self.logger = logger
+            self.logger = module_logger.getChild(name)
+        self.logger = logger
         self.name = name
         self.daemon = True
         self._lock = threading.Lock()
@@ -158,7 +166,6 @@ class PausableThread(threading.Thread):
 		    Stop the thread from running all together. Make
 		    sure to join this up with threading.Thread.join()
         For compatibility
-		    """
         self._stop_event.set()
 
     def stop(self):
@@ -190,11 +197,12 @@ class PausableThread(threading.Thread):
     def running(self):
         return self._running_event.isSet()
 
+
 class PausableThreadCallback(PausableThread):
     """
-	A thread that runs the same callback over an over again.
-	This thread can be paused, unpaused, and stopped in a thread-safe manner.
-	"""
+    A thread that runs the same callback over an over again.
+    This thread can be paused, unpaused, and stopped in a thread-safe manner.
+    """
     def __init__(self, *args, **kwargs):
         super(PausableThreadCallback, self).__init__(self, *args, **kwargs)
         if sys.version_info[0] == 2:
@@ -238,6 +246,7 @@ class PausableThreadCallback(PausableThread):
     def running(self):
         return self._running_event.isSet()
 
+
 def blocking(func):
     """
     This decorator will make it such that the server can do
@@ -266,54 +275,24 @@ def non_blocking(func):
 
     return wrapper
 
-class EventEmitter(object):
-    """
-    earlier version of EventEmitter now in support.pyro.async.event_emitter
-    
-    this does not handle disconnected sockets
-    """
-    def __init__(self, threaded=True):
-        self.threaded = threaded
-        self._lock = threading.Lock()
-        self.__handlers = {}
-
-    def emit(self, event_name, *args, **kwargs):
-        def emitter():
-            if event_name in self.__handlers:
-                for handler in self.__handlers[event_name]:
-                    with self._lock:
-                        module_logger.debug(
-                            "Emitting handler {} for event {}".format(handler,event_name)
-                        )
-                        handler(*args, **kwargs)
-
-        if self.threaded:
-            t = threading.Thread(target=emitter)
-            t.daemon = True
-            t.start()
-        else:
-            emitter()
-
-    def on(self, event_name, callback):
-        with self._lock:
-            if event_name not in self.__handlers:
-                self.__handlers[event_name] = []
-            self.__handlers[event_name].append(callback)
-
 def socket_error_class_to_dict(obj):
     """Dictionary representation of socket.error"""
     return {
         "__class__": "socket.error"
     }
 
-def socket_error_dict_to_class(classname,*args):
+
+def socket_error_dict_to_class(classname, *args):
     """Reconstruct socket.error"""
     return socket.error(*args)
+
 
 def register_socket_error():
     """
     Register socket.error to Pyro4's SerializerBase so we can send
     socket.errors across Pyro4 connections.
     """
-    SerializerBase.register_dict_to_class("socket.error", socket_error_dict_to_class)
-    SerializerBase.register_class_to_dict(socket.error, socket_error_class_to_dict)
+    SerializerBase.register_dict_to_class(
+        "socket.error", socket_error_dict_to_class)
+    SerializerBase.register_class_to_dict(
+        socket.error, socket_error_class_to_dict)

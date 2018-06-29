@@ -7,6 +7,9 @@ import inspect   # gets information about live Python objects
 
 import Pyro4
 
+from .async_callback_manager import AsyncCallbackManager
+from .async_callback import async_callback
+
 __all__ = ["AsyncProxy"]
 
 pyro4_version_info = Pyro4.__version__.split(".")
@@ -48,35 +51,36 @@ class AsyncProxy(Pyro4.core.Proxy):
     This is for passing callbacks to servers, such that the server can call
     client-side functions. This will register functions/methods on the fly.
 
-    Say we have some server implemented as follows:
+    Examples:
 
-    ```python
-    # async_server.py
-    from support.pyro import async
+    .. code-block:: python
 
-    class AsyncServer(object):
+        # async_server.py
+        from support.pyro import async
 
-        @async.async_method
-        def async_method(self, *args):
-            self.async_method.cb(args) # bounce back whatever is sent
+        class AsyncServer(object):
 
-    async_server = AsyncServer()
-    async_server.launch_server(ns=False,objectId="AsyncServer",objectPort=9092)
-    ```
+            @async.async_method
+            def async_method(self, *args):
+                self.async_method.cb(args) # bounce back whatever is sent
+
+        async_server = AsyncServer()
+        async_server.launch_server(ns=False,objectId="AsyncServer",objectPort=9092)
 
     We could access this server as follows:
 
-    ```python
-    # async_client.py
+    .. code-block:: python
 
-    def handler(res):
-        print("Got {} from server!".format(res))
+        # async_client.py
 
-    async_client = AsyncProxy("PYRO:AsyncServer@localhost:9092")
-    async_client.async_method(5,callback=handler)
-    while True:
-        pass
-    ```
+        def handler(res):
+            print("Got {} from server!".format(res))
+
+        async_client = AsyncProxy("PYRO:AsyncServer@localhost:9092")
+        async_client.async_method(5,callback=handler)
+        while True:
+            pass
+
     Note that the last bit is necessary if running inside a script, otherwise
     the client program will exit before the handler function can be called.
     """
@@ -126,7 +130,7 @@ class AsyncProxy(Pyro4.core.Proxy):
         """
         if name in AsyncProxy.__asyncAttributes:
             return super(Pyro4.core.Proxy, self).__getattribute__(name)
-        return Pyro4.core.Proxy.__getattr__(self,name)
+        return Pyro4.core.Proxy.__getattr__(self, name)
 
     def __setattr__(self, name, value):
         """
@@ -139,7 +143,7 @@ class AsyncProxy(Pyro4.core.Proxy):
         @type  value : object
         """
         if name in AsyncProxy.__asyncAttributes:
-            return object.__setattr__(self,name,value)
+            return object.__setattr__(self, name, value)
         return Pyro4.core.Proxy.__setattr__(self, name, value)
 
     def _pyroInvoke(self, methodname, vargs, kwargs, flags=0, objectId=None):
@@ -327,13 +331,15 @@ class AsyncProxy(Pyro4.core.Proxy):
         Given some string (corresponding to a function in the global scope),
         a function object, or a method, return the corresponding registered
         object.
+
         Args:
             callback (callable/str): Some callback object, or the name of
                 some callback.
         Returns:
-            dict: "obj": Either the function itself, or the object from which
-                        a method comes.
-                  "method": The name of the function
+            dict: dictionary with the following keys/values:
+                * "obj": Either the function itself, or the object from which
+                    a method comes.
+                * "method": The name of the function
         """
         #module_logger.debug("lookup_function_or_method:"+
         #                                 " type(callback) {}".format(callback))
@@ -377,10 +383,11 @@ class AsyncProxy(Pyro4.core.Proxy):
                 module_logger.debug("unregister:"+
                         " Didn't unregister object {} from daemon".format(obj))
 
-    def wait_for_callback(self, callback):
+    def wait(self, callback):
         """
         Given some callback registered with the AsnycProxy to be called.
         If there are any return values from the callback, return those.
+
         Args:
             callback (callable/str):
         Returns:
@@ -404,7 +411,7 @@ class AsyncProxy(Pyro4.core.Proxy):
         return obj._res[method_name]
 
     @staticmethod
-    def create_handler_class(fn):
+    def create_handler_class(func):
         """
         Create a wrapper class from an unbound function
         
@@ -444,4 +451,5 @@ class AsyncProxy(Pyro4.core.Proxy):
         setattr(Handler, fn.__name__, exposed_wrapper)
         # the name of the Handler class will be the function name
         Handler.__name__ = fn.__name__ # not sure this is the best solution
+
         return Handler

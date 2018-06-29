@@ -62,17 +62,17 @@ class Pyro4Server(EventEmitter):
                        logger=None,
                        **kwargs):
         """
+
         Args:
-            kwargs: Passed to super class.
-        Keyword Args:
-            cls (type): A class that will be instantiated with cls_args
+            cls (type, optional): A class that will be instantiated with cls_args
                 cls_kwargs, to be used as the server's object.
-            obj (object): Some object that will be registered on a Pyro4.Daemon.
-            cls_args (tuple/list): Arguments passed to cls.
-            cls_kwargs (dict): Keyword Arguments passed to cls.
-            name (str): server name
-            logfile (str): path to server's logfile
-            logger (logging.getLogger): logging instance.
+            obj (object, optional): Some object that will be registered on a Pyro4.Daemon.
+            cls_args (tuple/list, optional): Arguments passed to cls.
+            cls_kwargs (dict, optional): Keyword Arguments passed to cls.
+            name (str, optional): server name
+            logfile (str, optional): path to server's logfile
+            logger (logging.getLogger, optional): logging instance.
+            kwargs: Passed to super class.
         """
         super(Pyro4Server, self).__init__(**kwargs)
         # this is not a good way to do it because the logger takes the name of the subclass
@@ -118,6 +118,7 @@ class Pyro4Server(EventEmitter):
     def _instantiate_cls(self, cls, *args, **kwargs):
         """
         Create an instance of a class, given some arguments and keyword arguments.
+
         Args:
             cls (type): a class to be instantiated
             args: passed to cls
@@ -135,16 +136,12 @@ class Pyro4Server(EventEmitter):
     @config.expose
     @property
     def logfile(self):
-        """
-        Make logfile attribute accessible to a proxy corresponding to this server.
-        """
+        """Make logfile attribute accessible to a proxy corresponding to this server."""
         return self._logfile
 
     @config.expose
     def running(self):
-        """
-        Get running status of server
-        """
+        """Get running status of server"""
         with self.lock:
             return self._running
 
@@ -211,28 +208,28 @@ class Pyro4Server(EventEmitter):
         registers it on some local or remote nameserver.
 
         The if objectId, objectPort and objectHost are full specified, the daemon
-        this method creates will look as follows:
-            "PYRO:<objectId>@<objectHost>:<objectPort>"
+        this method creates will look as follows: "PYRO:<objectId>@<objectHost>:<objectPort>"
 
-        Keyword Args:
-            threaded (bool): If true, launch server on a thread. Otherwise,
+        Args:
+            threaded (bool, optional): If true, launch server on a thread. Otherwise,
                 launch server on main thread. (False)
-            reverse (bool): Create revese tunnel. (False)
-            objectId (str): The id for this object's daemon. (None)
-            objectPort (int): The daemon's port. (0, or random)
-            objectHost (str): The daemon's host. ("localhost")
-            local (bool): Whether or not to create SSH tunnel to some remote
+            reverse (bool, optional): Create revese tunnel. (False)
+            objectId (str, optional): The id for this object's daemon. (None)
+            objectPort (int, optional): The daemon's port. (0, or random)
+            objectHost (str, optional): The daemon's host. ("localhost")
+            local (bool, optional): Whether or not to create SSH tunnel to some remote
                 server. If True, doesn't create tunnels. (True)
-            ns (bool): Whether or not to attempt to register object's daemon
+            ns (bool, optional): Whether or not to attempt to register object's daemon
                 on a nameserver (True)
-            tunnel_kwargs (dict): used to create tunnel instance, or used
+            tunnel_kwargs (dict, optional): used to create tunnel instance, or used
                 as parameters to find nameserver (None)
 
         Returns:
-            dict: "daemon" (Pyro4.Daemon): The server's daemon
-                  "thread" (threading.Thread or None): If threaded, a instance of threading.Thread
-                    running the daemon's requestLoop. If not, None.
-                  "uri" (Pyro4.URI): The daemon's uri
+            dict:
+                * "daemon" (Pyro4.Daemon): The server's daemon
+                * "thread" (threading.Thread or None): If threaded, a instance of ``threading.Thread``
+                  running the daemon's requestLoop. If not, None.
+                * "uri" (Pyro4.URI): The daemon's uri
         """
         if tunnel_kwargs is None: tunnel_kwargs = {}
         daemon = Pyro4.Daemon(port=objectPort, host=objectHost)
@@ -313,9 +310,10 @@ class Pyro4Server(EventEmitter):
                 as paramters to instantiate an object of implicit cls.
             kwargs (dict): Passed to implicit cls.
         Returns:
-            app (Flask): Flask app
-            server (object): some object whose methods/attributes have been
-                registered as routes on app.
+            tuple:
+                * app (Flask): Flask app
+                * server (object): some object whose methods/attributes have been
+                  registered as routes on app.
         """
         import json
         from flask import Flask, jsonify, request
@@ -354,7 +352,6 @@ class Pyro4Server(EventEmitter):
             else:
                 status = "method {} is not an server method".format(method_name)
                 result = None
-            print({"status":status, "result":result})
             return jsonify(data={"status":status, "result":result})
 
         return app, server
@@ -372,11 +369,12 @@ class Pyro4Server(EventEmitter):
                 this object's exposed methods. Otherwise, use args and kwargs
                 as paramters to instantiate an object of implicit cls.
             kwargs (dict): Passed to implicit cls.
+
         Returns:
-            app (Flask): Flask app
-            socketio (SocketIO): flask_socketio.SocketIO instance.
-            server (object): object whose methods have been registered as
-                socket routes.
+            tuple:
+                * app (Flask): Flask app
+                * socketio (SocketIO): flask_socketio.SocketIO instance.
+                * server (object): object whose methods have been registered as socket routes.
         """
         import json
         from flask import Flask, jsonify, request

@@ -15,6 +15,7 @@ module_logger = logging.getLogger(__name__)
 class SubscriberThread(PausableThread):
     """
     Thread for consuming incoming messages from a remote publisher.
+
     Attributes:
         context (zmq.Context.instance): zmq context
         serializer (serializer like object): object with `loads` method
@@ -30,9 +31,8 @@ class SubscriberThread(PausableThread):
             context (zmq.Context.instance): zmq context
             serializer (serializer like object): object with `loads` method
             kwargs (dict): passed to super class
-        Keyword Args:
-            host (str): zmq socket host. ("localhost")
-            port (port): zmq socket port. (0)
+            host (str, optional): zmq socket host. ("localhost")
+            port (int, optional): zmq socket port. (0)
         """
         super(SubscriberThread, self).__init__(**kwargs)
         self.context = context
@@ -75,8 +75,8 @@ class Subscriber(EventEmitter):
     """
     def __init__(self, logger=None):
         """
-        Keyword Arguments:
-            logger (logging.getLogger): logging instance.
+        Args:
+            logger (logging.getLogger, optional): logging instance.
         """
         super(Subscriber, self).__init__()
         self.subscriber_thread = None
@@ -141,17 +141,17 @@ class ZmqSubscriber(Subscriber):
 
     Example:
 
-    ```python
-    # example_zmq_subscriber.py
+    .. code-block:: python
+    
+        # example_zmq_subscriber.py
 
-    class MyZmqSubscriber(ZmqSubscriber)
-        def consume(self, res):
-            print(res)
+        class MyZmqSubscriber(ZmqSubscriber)
+            def consume(self, res):
+                print(res)
 
-    uri = "PYRO:MyPublisher@localhost:9093"
-    sub = MyZmqSubscriber(uri)
-    sub.start_subscribing()
-    ```
+        uri = "PYRO:MyPublisher@localhost:9093"
+        sub = MyZmqSubscriber(uri)
+        sub.start_subscribing()
 
     Attributes:
         proxy (proxy like object): Some Proxy like object, namely something
@@ -166,9 +166,8 @@ class ZmqSubscriber(Subscriber):
             uri_or_proxy (str/URI/proxy like object): Either a URI or a proxy-like
                 object. If we pass a uri, then we automatically create a proxy
                 using the proxy_class keyword argument
-        Keyword Args:
-            logger (logging.getLogger): logging instance (None)
-            proxy_class (type): Class for creating proxy-like object from URI. (AsyncProxy)
+            logger (logging.getLogger, optional): logging instance (None)
+            proxy_class (type, optional): Class for creating proxy-like object from URI. (AsyncProxy)
         """
         super(ZmqSubscriber, self).__init__(logger=logger)
         if isinstance(uri_or_proxy, Pyro4.core.URI):

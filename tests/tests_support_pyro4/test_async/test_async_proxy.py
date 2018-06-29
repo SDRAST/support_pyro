@@ -6,29 +6,30 @@ import unittest
 
 import Pyro4
 
-from ... import setup_logging
+from support.logs import setup_logging
 
 from support_pyro.support_pyro4.async import async_callback
 from support_pyro.support_pyro4.async.async_proxy import AsyncProxy
-from . import test_case_factory, SimpleServer, SimpleAsyncServer
+from support_pyro.support_pyro4.async.async_client import AsyncClient
 
-class TestAsyncProxy(test_case_factory(SimpleServer)):
+from . import SimpleServer, SimpleAsyncServer
+from .. import test_case_with_server
+
+class TestAsyncProxy(test_case_with_server(SimpleServer)):
 
     def setUp(self):
         self.logger = logging.getLogger("TestAsyncProxy")
         self.called = {
             "callback":False
         }
-        class Client(object):
+
+        class Client(AsyncClient):
+
             test_case = self
-            called = {
-                "callback": False
-            }
+
             @async_callback
             def callback(self, res):
-                self.called["callback"] = True
                 self.test_case.assertTrue(res == "hello")
-                return res
 
         def callback(res):
             self.called["callback"] = True
@@ -37,7 +38,7 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
 
         self.callback = callback
         self.Client = Client
-        proxy = AsyncProxy("PYRO:SimpleAsyncServer@localhost:55000")
+        proxy = AsyncProxy(self.uri)
         self.proxy = proxy
 
     def tearDown(self):
@@ -46,9 +47,9 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
 
 #    @unittest.skip("")
     def test_init_full_args(self):
-        p = AsyncProxy("PYRO:SimpleAsyncServer@localhost:55000",
-                                        daemon_details={"host":"localhost",
-                                        "port": 50001})
+        p = AsyncProxy(self.uri,
+                        daemon_details={"host":"localhost",
+                        "port": 50001})
         self.assertTrue(isinstance(p, AsyncProxy))
         self.assertTrue(p._daemon.locationStr == "localhost:50001")
         self.assertEqual(p._asyncHandlers, {})
@@ -58,8 +59,7 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
     def test_init_with_prexisting_daemon(self):
         self.proxy._daemon.shutdown()
         daemon = Pyro4.Daemon(port=50001,host="localhost")
-        p = AsyncProxy("PYRO:SimpleAsyncServer@localhost:55000",
-                                            daemon_details={"daemon":daemon})
+        p = AsyncProxy(self.uri,daemon_details={"daemon":daemon})
         self.assertTrue(p._daemon.locationStr == "localhost:50001")
         p._daemon.shutdown()
 
@@ -109,16 +109,16 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
         self.proxy.register(client)
         obj, obj_id = self.proxy.lookup(client)[0]
         obj.callback("hello")
-        self.assertTrue(client.called["callback"])
+        self.assertTrue(client._called["callback"])
 
-    # @unittest.skip("")
+#    @unittest.skip("")
     def test_register_multiple_obj(self):
         client = self.Client()
         callback = self.callback
         self.proxy.register(client, callback)
         obj, objectId = self.proxy.lookup(client)[0]
         obj.callback("hello")
-        self.assertTrue(client.called["callback"])
+        self.assertTrue(client._called["callback"])
 
         obj, objectId = self.proxy.lookup(callback)[0]
         obj.callback("hello")
@@ -126,7 +126,7 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
         # obj, objectId = self.proxy.lookup(client)[0]
         # print(obj)
 
-    # @unittest.skip("")
+#    @unittest.skip("")
     def test_register_handlers_with_daemon(self):
         callback = self.callback
         self.proxy.register(callback)
@@ -169,23 +169,22 @@ class TestAsyncProxy(test_case_factory(SimpleServer)):
         self.assertTrue(res["method"] == self.callback.__name__)
 
 #    @unittest.skip("")
-    def test_wait_for_callback_fn(self):
-
+    def test_wait_fn(self):
         self.proxy.register(self.callback)
         obj, _ = self.proxy.lookup(self.callback)[0]
-        obj.callback("hello")
-        res = self.proxy.wait_for_callback(self.callback)
-        self.assertTrue(res == "hello")
+        with self.proxy.wait(self.callback):
+            obj.callback("hello")
+        # res = self.proxy.wait(self.callback)
+        # self.assertTrue(res == "hello")
 
 #    @unittest.skip("")
-    def test_wait_for_callback_obj(self):
+    def test_wait_obj(self):
         client = self.Client()
         self.proxy.register(client)
         obj, _ = self.proxy.lookup(client)[0]
-        obj.callback("hello")
-        res = self.proxy.wait_for_callback(client.callback)
-        self.assertTrue(res == "hello")
+        with self.proxy.wait(client.callback):
+            obj.callback("hello")
 
 if __name__ == "__main__":
-    setup_logging(logLevel=logging.DEBUG)
+    setup_logging(logLevel=logging.INFO)
     unittest.main()

@@ -46,7 +46,8 @@ class AsyncCallbackManager(object):
 
         proxy = None
         if uri_or_proxy is not None:
-            if isinstance(uri_or_proxy, Pyro4.core.URI) or hasattr(uri_or_proxy, "format"):
+            if (isinstance(uri_or_proxy, Pyro4.core.URI) or
+               hasattr(uri_or_proxy, "format")):
                 proxy = proxy_class(uri_or_proxy)
             else:
                 proxy = uri_or_proxy

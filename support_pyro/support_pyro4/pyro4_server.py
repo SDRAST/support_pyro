@@ -53,13 +53,15 @@ class Pyro4Server(EventEmitter):
             on the main thread.
         lock (threading.Lock): Lock for thread safety.
     """
-    def __init__(self, cls=None,
-                       obj=None,
-                       cls_args=None,
-                       cls_kwargs=None,
-                       name=None,
-                       logfile=None,
-                       logger=None,**kwargs):
+    def __init__(self,
+                 cls=None,
+                 obj=None,
+                 cls_args=None,
+                 cls_kwargs=None,
+                 name=None,
+                 logfile=None,
+                 logger=None,
+                 **kwargs):
         """
 
         Args:
@@ -315,12 +317,15 @@ class Pyro4Server(EventEmitter):
         from flask import Flask, jsonify, request
         from flask_socketio import SocketIO, send, emit
 
+        app = kwargs.pop("app", None)
+
         if len(args) > 0:
             if isinstance(args[0], cls):
                 server = args[0]
         else:
             server = cls(*args, **kwargs)
-        app = Flask(server.name)
+        if app is None:
+            app = Flask(server.name)
 
         @app.route("/<method_name>", methods=['GET'])
         def method(data):
@@ -378,15 +383,21 @@ class Pyro4Server(EventEmitter):
         import eventlet
         eventlet.monkey_patch()
 
+        socketio = kwargs.pop("socketio", None)
+        app = kwargs.pop("app", None)
+
         if len(args) > 0:
             if isinstance(args[0], cls):
                 server = args[0]
         else:
             server = cls(*args, **kwargs)
+
         server.logger.info("Making flask socketio app.")
-        app = Flask(server.name)
-        app.config['SECRET_KEY'] = "radio_astronomy_is_cool"
-        socketio = SocketIO(app, async_mode="eventlet")
+        if app is None:
+            app = Flask(server.name)
+            app.config['SECRET_KEY'] = "radio_astronomy_is_cool"
+        if socketio is None:
+            socketio = SocketIO(app, async_mode="eventlet")
 
         for method_pair in inspect.getmembers(cls):
             method_name = method_pair[0]

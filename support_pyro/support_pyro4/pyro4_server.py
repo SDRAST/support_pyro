@@ -76,8 +76,8 @@ class Pyro4Server(EventEmitter):
             kwargs: Passed to super class.
         """
         super(Pyro4Server, self).__init__(**kwargs)
-        if not logger: logger = logging.getLogger(module_logger.name +
-                                                ".{}".format(self.__class__.__name__))
+        if not logger:
+            logger = module_logger.getChild(self.__class__.__name__)
         self.logger = logger
         self.logger.debug("__init__: cls: {}".format(cls))
         if obj is None and cls is None:
@@ -93,14 +93,17 @@ class Pyro4Server(EventEmitter):
 
         if cls is not None:
             self.cls = cls
-            if cls_args is None: cls_args = ()
-            if cls_kwargs is None: cls_kwargs = {}
+            if cls_args is None:
+                cls_args = ()
+            if cls_kwargs is None:
+                cls_kwargs = {}
             try:
                 self.obj = self._instantiate_cls(cls, *cls_args, **cls_kwargs)
-            except:
+            except Exception as err:
                 pass
 
-        if name is None: name = self.obj.__class__.__name__
+        if name is None:
+            name = self.obj.__class__.__name__
         self._name = name
         self._logfile = logfile
 
@@ -196,11 +199,15 @@ class Pyro4Server(EventEmitter):
         finally:
             os.kill(os.getpid(), signal.SIGKILL)
 
-    def launch_server(self, threaded=False, reverse=False,
-                            objectId=None,objectPort=0,
-                            objectHost="localhost",
-                            local=True,
-                            ns=True,tunnel_kwargs=None):
+    def launch_server(self,
+                      threaded=False,
+                      reverse=False,
+                      objectId=None,
+                      objectPort=0,
+                      objectHost="localhost",
+                      local=True,
+                      ns=True,
+                      tunnel_kwargs=None):
         """
         Launch server, remotely or locally. Creates a Pyro4.Daemon, and optionally
         registers it on some local or remote nameserver.
@@ -229,9 +236,10 @@ class Pyro4Server(EventEmitter):
                   running the daemon's requestLoop. If not, None.
                 * "uri" (Pyro4.URI): The daemon's uri
         """
-        if tunnel_kwargs is None: tunnel_kwargs = {}
+        if tunnel_kwargs is None:
+            tunnel_kwargs = {}
         daemon = Pyro4.Daemon(port=objectPort, host=objectHost)
-        server_uri = daemon.register(self.obj,objectId=objectId)
+        server_uri = daemon.register(self.obj, objectId=objectId)
         if not local:
             if ns:
                 tunnel = NameServerTunnel(**tunnel_kwargs)
@@ -262,12 +270,17 @@ class Pyro4Server(EventEmitter):
             signal.signal(signal.SIGINT, self._handler)
             self.logger.debug("Starting request loop")
             self.daemon.requestLoop(self.running)
-            return {"daemon":self.daemon, "thread":None, "uri":self.server_uri}
+            return {"daemon": self.daemon,
+                    "thread": None,
+                    "uri": self.server_uri}
         else:
-            t = threading.Thread(target=self.daemon.requestLoop, args=(self.running,))
+            t = threading.Thread(
+                target=self.daemon.requestLoop, args=(self.running,))
             t.daemon = True
             t.start()
-            return {"daemon":self.daemon, "thread":t, "uri":self.server_uri}
+            return {"daemon": self.daemon,
+                    "thread": t,
+                    "uri": self.server_uri}
 
     def close(self):
         """

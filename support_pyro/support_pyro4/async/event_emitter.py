@@ -7,7 +7,8 @@ from .async_proxy import AsyncProxy
 
 module_logger = logging.getLogger(__name__)
 
-__all__ = ["EventEmitter","EventEmitterProxy"]
+__all__ = ["EventEmitter", "EventEmitterProxy"]
+
 
 class EventEmitter(object):
     """

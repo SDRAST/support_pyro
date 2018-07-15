@@ -1,5 +1,5 @@
 ## support_pyro
-### Version 2.0.0a
+### Version 2.0.0
 
 Pyro4 server and client.
 
@@ -23,7 +23,7 @@ from pyro_support import Pyro4Server
 class NewCoolServer(Pyro4Server):
 
     def __init__(self):
-        Pyro4Server.__init__(name="NewCoolServer")
+        Pyro4Server.__init__(obj=self, name="NewCoolServer")
 
     @Pyro4.expose
     def new_cool_method(self):
@@ -40,7 +40,7 @@ Now to interface with this subclass, we do the following:
 ```python
 # new_cool_client.py
 
-import pyro4tunneling
+import pyro4tunnel
 
 t = pyro4tunneling(local=True)
 p = t.get_remote_object("NewCoolServer")

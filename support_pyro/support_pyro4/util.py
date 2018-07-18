@@ -235,11 +235,11 @@ class PausableThreadCallback(PausableThread):
 class CoopPausableThread(PausableThreadCallback):
 
     def run(self):
-        self._running.set()
+        self._running_event.set()
         for e in self.callback(*self.callback_args, **self.callback_kwargs):
             if self.stopped():
                 break
-        self._running.clear()
+        self._running_event.clear()
 
 
 def blocking(func):

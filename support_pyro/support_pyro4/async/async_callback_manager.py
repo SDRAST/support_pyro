@@ -161,19 +161,23 @@ class AsyncCallbackManager(object):
         for i in xrange(len(method_names)):
             method_or_name = method_names[i]
             if (method_or_name not in async_method_names and
-                method_or_name not in async_methods):
-                raise RuntimeError("wait: {} not in this class's async methods {}".format(method_name, async_method_names))
+               method_or_name not in async_methods):
+                raise RuntimeError(
+                    "wait: {} not in this class's async methods {}".format(
+                        method_name, async_method_names))
             if inspect.ismethod(method_or_name):
                 method_names[i] = method_or_name.__name__
 
-        current_calls = [self._calls[method_name] for method_name in method_names]
+        current_calls = [self._calls[method_name]
+                         for method_name in method_names]
 
         yield
 
         t0 = time.time()
-        while any([self._calls[method_names[i]] == current_calls[i] for i in xrange(len(method_names))]):
+        while any([self._calls[method_names[i]] == current_calls[i]
+                  for i in xrange(len(method_names))]):
             if timeout is None:
                 pass
             else:
                 if (time.time() - t0) >= timeout:
-                    break
+                    raise RuntimeError("timed out")

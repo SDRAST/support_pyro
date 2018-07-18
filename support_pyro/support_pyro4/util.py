@@ -231,6 +231,14 @@ class PausableThreadCallback(PausableThread):
         return self._running_event.isSet()
 
 
+class CoopPausableThread(PausableThreadCallback):
+
+    def run(self):
+        for e in self.callback(*self.callback_args, **self.callback_kwargs):
+            if self.stopped():
+                break
+    
+
 def blocking(func):
     """
     This decorator will make it such that the server can do

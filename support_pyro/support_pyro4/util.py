@@ -233,13 +233,13 @@ class PausableThreadCallback(PausableThread):
 
 
 class CoopPausableThread(PausableThreadCallback):
-    def __init__(self, *args, **kwargs):
-        super(CoopPausableThread, self).__init__(*args, **kwargs)
 
     def run(self):
+        self._running.set()
         for e in self.callback(*self.callback_args, **self.callback_kwargs):
             if self.stopped():
                 break
+        self._running.clear()
 
 
 def blocking(func):

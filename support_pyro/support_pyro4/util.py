@@ -13,6 +13,7 @@ __all__ = [
     "Pause",
     "PausableThread",
     "PausableThreadCallback",
+    "CoopPausableThread",
     "blocking",
     "non_blocking",
     "register_socket_error"
@@ -188,7 +189,7 @@ class PausableThreadCallback(PausableThread):
     This thread can be paused, unpaused, and stopped in a thread-safe manner.
     """
     def __init__(self, *args, **kwargs):
-        super(PausableThreadCallback, self).__init__(self, *args, **kwargs)
+        super(PausableThreadCallback, self).__init__(*args, **kwargs)
         if sys.version_info[0] == 2:
             self.callback = self._Thread__target
             self.callback_args = self._Thread__args
@@ -232,12 +233,14 @@ class PausableThreadCallback(PausableThread):
 
 
 class CoopPausableThread(PausableThreadCallback):
+    def __init__(self, *args, **kwargs):
+        super(CoopPausableThread, self).__init__(*args, **kwargs)
 
     def run(self):
         for e in self.callback(*self.callback_args, **self.callback_kwargs):
             if self.stopped():
                 break
-    
+
 
 def blocking(func):
     """

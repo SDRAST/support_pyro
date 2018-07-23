@@ -166,6 +166,7 @@ class PausableThread(threading.Thread):
 		    Stop the thread from running all together. Make
 		    sure to join this up with threading.Thread.join()
         For compatibility
+        """
         self._stop_event.set()
 
     def stop(self):

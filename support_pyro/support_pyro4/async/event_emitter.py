@@ -38,6 +38,7 @@ class EventEmitter(object):
             **kwargs: keyword arguments to pass to the handler(s)
         """
         module_logger.debug("emit: called. event_name: {}".format(event_name))
+
         def emitter():
             if event_name in self._handlers:
                 handlers_to_remove = []
@@ -48,7 +49,8 @@ class EventEmitter(object):
                         handlers_to_remove.append(handler_dict)
                     with self._lock:
                         module_logger.debug(
-                            "emit: handler {} for event {}".format(handler,event_name)
+                            "emit: handler {} for event {}".format(
+                                handler, event_name)
                         )
                         if isinstance(handler, dict):
                             handler_obj = handler["cb_handler"]
@@ -65,7 +67,7 @@ class EventEmitter(object):
 
         if self.threaded:
             t = threading.Thread(target=emitter)
-            t.daemon = False
+            t.daemon = True
             t.start()
         else:
             emitter()
@@ -116,7 +118,7 @@ class EventEmitterProxy(AsyncProxy):
 
     21-03-2018: This is largly untested and unproven.
     """
-    def on(self,event,callback,**kwargs):
+    def on(self, event,callback, **kwargs):
         module_logger.debug("on: called for event {}".format(event))
         res = self.lookup_function_or_method(callback)
         callback_obj = res["obj"]

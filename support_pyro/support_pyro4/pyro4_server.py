@@ -75,11 +75,8 @@ class Pyro4Server(EventEmitter):
             kwargs: Passed to super class.
         """
         super(Pyro4Server, self).__init__(**kwargs)
-        # this is not a good way to do it because the logger takes the name of the subclass
-        if not logger: 
-          logger = logging.getLogger(module_logger.name +
-                                                ".{}".format(self.__class__.__name__))
-          logger.debug("__init__: logger is %s", logger.name)
+        if not logger:
+            logger = module_logger.getChild(self.__class__.__name__)
         self.logger = logger
         self.logger.debug("Pyro4Server:__init__: cls: {}".format(cls))
         if obj is None and cls is None:
@@ -95,14 +92,17 @@ class Pyro4Server(EventEmitter):
 
         if cls is not None:
             self.cls = cls
-            if cls_args is None: cls_args = ()
-            if cls_kwargs is None: cls_kwargs = {}
+            if cls_args is None:
+                cls_args = ()
+            if cls_kwargs is None:
+                cls_kwargs = {}
             try:
                 self.obj = self._instantiate_cls(cls, *cls_args, **cls_kwargs)
-            except:
+            except Exception as err:
                 pass
 
-        if name is None: name = self.obj.__class__.__name__
+        if name is None:
+            name = self.obj.__class__.__name__
         self._name = name
         self._logfile = logfile
 
@@ -198,11 +198,15 @@ class Pyro4Server(EventEmitter):
         finally:
             os.kill(os.getpid(), signal.SIGKILL)
 
-    def launch_server(self, threaded=False, reverse=False,
-                            objectId=None,objectPort=0,
-                            objectHost="localhost",
-                            local=True,
-                            ns=True,tunnel_kwargs=None):
+    def launch_server(self,
+                      threaded=False,
+                      reverse=False,
+                      objectId=None,
+                      objectPort=0,
+                      objectHost="localhost",
+                      local=True,
+                      ns=True,
+                      tunnel_kwargs=None):
         """
         Launch server, remotely or locally. Creates a Pyro4.Daemon, and optionally
         registers it on some local or remote nameserver.
@@ -231,9 +235,10 @@ class Pyro4Server(EventEmitter):
                   running the daemon's requestLoop. If not, None.
                 * "uri" (Pyro4.URI): The daemon's uri
         """
-        if tunnel_kwargs is None: tunnel_kwargs = {}
+        if tunnel_kwargs is None:
+            tunnel_kwargs = {}
         daemon = Pyro4.Daemon(port=objectPort, host=objectHost)
-        server_uri = daemon.register(self.obj,objectId=objectId)
+        server_uri = daemon.register(self.obj, objectId=objectId)
         if not local:
             if ns:
                 tunnel = NameServerTunnel(**tunnel_kwargs)
@@ -264,12 +269,17 @@ class Pyro4Server(EventEmitter):
             signal.signal(signal.SIGINT, self._handler)
             self.logger.warning("launch_server: starting request loop")
             self.daemon.requestLoop(self.running)
-            return {"daemon":self.daemon, "thread":None, "uri":self.server_uri}
+            return {"daemon": self.daemon,
+                    "thread": None,
+                    "uri": self.server_uri}
         else:
-            t = threading.Thread(target=self.daemon.requestLoop, args=(self.running,))
+            t = threading.Thread(
+                target=self.daemon.requestLoop, args=(self.running,))
             t.daemon = True
             t.start()
-            return {"daemon":self.daemon, "thread":t, "uri":self.server_uri}
+            return {"daemon": self.daemon,
+                    "thread": t,
+                    "uri": self.server_uri}
 
     def close(self):
         """
@@ -319,12 +329,15 @@ class Pyro4Server(EventEmitter):
         from flask import Flask, jsonify, request
         from flask_socketio import SocketIO, send, emit
 
+        app = kwargs.pop("app", None)
+
         if len(args) > 0:
             if isinstance(args[0], cls):
                 server = args[0]
         else:
             server = cls(*args, **kwargs)
-        app = Flask(server.name)
+        if app is None:
+            app = Flask(server.name)
 
         @app.route("/<method_name>", methods=['GET'])
         def method(data):
@@ -382,15 +395,21 @@ class Pyro4Server(EventEmitter):
         import eventlet
         eventlet.monkey_patch()
 
+        socketio = kwargs.pop("socketio", None)
+        app = kwargs.pop("app", None)
+
         if len(args) > 0:
             if isinstance(args[0], cls):
                 server = args[0]
         else:
             server = cls(*args, **kwargs)
+
         server.logger.info("Making flask socketio app.")
-        app = Flask(server.name)
-        app.config['SECRET_KEY'] = "radio_astronomy_is_cool"
-        socketio = SocketIO(app, async_mode="eventlet")
+        if app is None:
+            app = Flask(server.name)
+            app.config['SECRET_KEY'] = "radio_astronomy_is_cool"
+        if socketio is None:
+            socketio = SocketIO(app, async_mode="eventlet")
 
         for method_pair in inspect.getmembers(cls):
             method_name = method_pair[0]

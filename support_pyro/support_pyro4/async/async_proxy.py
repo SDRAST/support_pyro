@@ -17,6 +17,7 @@ pyro4_version_info = Pyro4.__version__.split(".")
 module_logger = logging.getLogger(__name__)
 module_logger.debug("from {}".format(__name__))
 
+
 class AsyncProxy(Pyro4.core.Proxy):
     """
     Proxy that has a Pyro4 Daemon attached to it that registers methods.
@@ -85,7 +86,7 @@ class AsyncProxy(Pyro4.core.Proxy):
     the client program will exit before the handler function can be called.
     """
     __asyncAttributes = frozenset(
-        ["_daemon","_daemon_thread","_asyncHandlers"]
+        ["_daemon", "_daemon_thread", "_asyncHandlers"]
     )
     def __init__(self, uri, daemon_details=None):
         """

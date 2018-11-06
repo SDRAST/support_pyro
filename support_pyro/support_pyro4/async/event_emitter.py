@@ -21,7 +21,8 @@ from .async_proxy import AsyncProxy
 
 module_logger = logging.getLogger(__name__)
 
-__all__ = ["EventEmitter","EventEmitterProxy"]
+__all__ = ["EventEmitter", "EventEmitterProxy"]
+
 
 class EventEmitter(object):
     """
@@ -55,6 +56,7 @@ class EventEmitter(object):
         @param **kwargs : keyword arguments to pass to the handler(s)
         """
         module_logger.debug("emit: called. event_name: {}".format(event_name))
+
         def emitter():
             # process an event
             if event_name in self._handlers:
@@ -67,7 +69,8 @@ class EventEmitter(object):
                         handlers_to_remove.append(handler_dict)
                     with self._lock:
                         module_logger.debug(
-                            "emit: handler {} for event {}".format(handler,event_name)
+                            "emit: handler {} for event {}".format(
+                                handler, event_name)
                         )
                         if isinstance(handler, dict):
                             handler_obj = handler["cb_handler"]
@@ -86,7 +89,7 @@ class EventEmitter(object):
                 
         if self.threaded:
             t = threading.Thread(target=emitter)
-            t.daemon = False
+            t.daemon = True
             t.start()
         else:
             emitter()

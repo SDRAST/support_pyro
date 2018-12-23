@@ -17,6 +17,10 @@ import atexit
 import socket
 import sys
 
+# Set up Python logging
+logging.basicConfig(level=logging.WARNING)
+module_logger = logging.getLogger(__name__)
+
 from local_dirs import *
 from support import NamedClass
 from support.local_dirs import log_dir
@@ -27,7 +31,9 @@ from support.logs import (
     get_loglevel,
     set_loglevel
 )
+module_logger.debug("Doing 'from support.network import get_domain, get_local_network'")
 from support.network import get_domain, get_local_network
+module_logger.debug("Doing 'import support.tunneling as T'")
 import support.tunneling as T
 
 # Set up Pyro system logging
@@ -38,10 +44,6 @@ ALL = 3
 Pyro.config.PYRO_TRACELEVEL = WARNINGS
 Pyro.config.PYRO_STDLOGGING = True
 SLog = Pyro.util.SystemLogger()
-
-# Set up Python logging
-logging.basicConfig(level=logging.WARNING)
-module_logger = logging.getLogger(__name__)
 
 try:
   pyro_log_dir = os.path.join(log_dir, "PYRO")
@@ -703,7 +705,8 @@ def launch_server(serverhost, taskname, task):
 
 
 # Generally, JPL/DSN hosts cannot be resolved by DNS
-GATEWAY, IP, PORT = T.make_port_dict()
+#GATEWAY, IP, PORT = T.make_port_dict()
+from support.tunneling import IP, PORT
 pyro_server_name = {'127.0.0.1':      'localhost',
                     '128.149.22.95':  'roachnest',
                     '137.228.236.103': 'dto',

@@ -15,7 +15,7 @@ __all__ = ["AsyncProxy"]
 pyro4_version_info = Pyro4.__version__.split(".")
 
 module_logger = logging.getLogger(__name__)
-module_logger.debug("from {}".format(__name__))
+#module_logger.debug("from {}".format(__name__))
 
 
 class AsyncProxy(Pyro4.core.Proxy):

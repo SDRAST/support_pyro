@@ -13,15 +13,13 @@ import Pyro5
 module_logger = logging.getLogger(__name__)
 
 try:
-    from support.trifeni import NameServerTunnel, DaemonTunnel, Pyro4Tunnel
+    from support.trifeni import NameServerTunnel, DaemonTunnel, Pyro5Tunnel
 except ImportError as err:
     module_logger.error("pyro4_server: can't import NameServerTunnel or TunnelError: {}".format(err))
 
-from .asyncs import EventEmitter
-
 __all__ = ["Pyro5Server"]
 
-class Pyro5Server(EventEmitter):
+class Pyro5Server(object):
     """
     class that can launch an object or instance of class on a nameserver or
     simply as a daemon.
@@ -41,7 +39,7 @@ class Pyro5Server(EventEmitter):
         logfile (str): Path to logfile for server.
         running (bool): boolean expressing whether the server has been launched
             or not
-        tunnel (support.trifeni.Pyro4Tunnel like): A tunnel instance.
+        tunnel (support.trifeni.Pyro5Tunnel like): A tunnel instance.
         tunnel_kwargs (dict): key word arguments that are uesd to instantiate
             tunnel instance
         server_uri (str/Pyro5.URI): the server's URI
@@ -73,7 +71,7 @@ class Pyro5Server(EventEmitter):
             logger (logging.getLogger, optional): logging instance.
             kwargs: Passed to super class.
         """
-        super(Pyro5Server, self).__init__(**kwargs)
+        #super(Pyro5Server, self).__init__(**kwargs)
         if not logger:
             logger = module_logger.getChild(self.__class__.__name__)
         self.logger = logger
@@ -125,13 +123,6 @@ class Pyro5Server(EventEmitter):
         """
         return cls(*args, **kwargs)
 
-    # def __call__(self, *args, **kwargs):
-    #     """
-    #     DEPRECATED. For use when decorating classes with Pyro5Server class.
-    #     """
-    #     self.obj = self._instantiate_cls(self.cls, *args, **kwargs)
-    #     return (self, self.obj)
-
     @Pyro5.api.expose
     @property
     def logfile(self):
@@ -167,20 +158,6 @@ class Pyro5Server(EventEmitter):
         """
         return "hello"
 
-    @Pyro5.api.expose
-    def on(self, *args):
-        """
-        Explicitly expose EventEmitter's on method
-        """
-        super(Pyro5Server, self).on(*args)
-
-    @Pyro5.api.expose
-    def emit(self, *args):
-        """
-        Explicitly expose EventEmitter's emit method
-        """
-        super(Pyro5Server, self).emit(*args)
-
     def _handler(self, signum, frame):
         """
         Define actions that should occur before the server
@@ -190,10 +167,10 @@ class Pyro5Server(EventEmitter):
             frame (None/frame object): current stack frame
         """
         try:
-            self.logger.info("Closing down server.")
+            self.logger.info("handler: Closing down server.")
             self.close()
         except Exception as e:
-            self.logger.error("Error shutting down daemon: {}".format(e), exc_info=True)
+            self.logger.error("handler: Error shutting down daemon: {}".format(e), exc_info=True)
         finally:
             os.kill(os.getpid(), signal.SIGKILL)
 
@@ -253,7 +230,7 @@ class Pyro5Server(EventEmitter):
                 ns = Pyro5.locateNS(**tunnel_kwargs)
                 ns.register(self._name, server_uri)
 
-        self.logger.warning("{} available".format(server_uri))
+        self.logger.warning("launch_server: {} available".format(server_uri))
 
         self.daemon = daemon
         self.tunnel_kwargs = tunnel_kwargs
@@ -272,8 +249,8 @@ class Pyro5Server(EventEmitter):
                     "thread": None,
                     "uri": self.server_uri}
         else:
-            t = threading.Thread(
-                target=self.daemon.requestLoop, args=(self.running,))
+            t = threading.Thread(target=self.daemon.requestLoop, 
+                                 args=(self.running,) )
             t.daemon = True
             t.start()
             return {"daemon": self.daemon,
@@ -290,7 +267,8 @@ class Pyro5Server(EventEmitter):
             try:
                 self.daemon.unregister(self.obj)
             except Exception as err:
-                self.logger.error("Couldn't unregister {} from daemon: {}".format(self.obj, err))
+                self.logger.error(
+                 "close: Couldn't unregister {} from daemon: {}".format(self.obj, err))
 
             if self.threaded:
                 self.daemon.shutdown()
@@ -301,9 +279,10 @@ class Pyro5Server(EventEmitter):
                 try:
                     self.tunnel.ns.remove(self._name)
                 except AttributeError as err:
-                    self.logger.debug("Tried to remove object from nameserver that we don't have reference to")
+                    self.logger.debug("close: Tried to remove object from nameserver"+
+                                             " that we don't have reference to")
                 except Pyro5.errors.ConnectionClosedError as err:
-                    self.logger.debug("Connection to object already shutdown: {}".format(err))
+                    self.logger.debug("close: Connection to object already shutdown: {}".format(err))
 
     @classmethod
     def flaskify(cls, *args, **kwargs):
@@ -311,12 +290,13 @@ class Pyro5Server(EventEmitter):
         Create a flask server using the PyroServer.
         There are two use cases:
         You pass parameters to instantiate a new instance of cls, or
-        You pass an object of cls as the first argument, and this is the server used.
+        You pass an object of cls as the first argument, and this is the server
+        used.
 
         Args:
             args (list/tuple): If first argument is an object, then register
                 this object's exposed methods. Otherwise, use args and kwargs
-                as paramters to instantiate an object of implicit cls.
+                as parameters to instantiate an object of implicit cls.
             kwargs (dict): Passed to implicit cls.
         Returns:
             tuple:
@@ -391,8 +371,6 @@ class Pyro5Server(EventEmitter):
         import json
         from flask import Flask, jsonify, request
         from flask_socketio import SocketIO, send, emit
-        import eventlet
-        eventlet.monkey_patch()
 
         socketio = kwargs.pop("socketio", None)
         app = kwargs.pop("app", None)
@@ -416,7 +394,8 @@ class Pyro5Server(EventEmitter):
             exposed = getattr(method, "_pyroExposed", None)
             pasync = getattr(method, "_pyroAsync", None)
             if exposed:
-                server.logger.info("Registering method: {}, pasync: {}".format(method_name, pasync))
+                server.logger.info("flaskify_io: Registering method: {}, pasync: {}".format(
+                                                           method_name, pasync))
                 def wrapper(method, method_name):
                     def inner(data):
                         args = data.get("args", [])

@@ -2,13 +2,13 @@ from __future__ import print_function
 import time
 import logging
 
-import Pyro4
+from Pyro5.compatibility import Pyro4
 
 __all__ = ['AutoReconnectingProxy', 'Pyro4Client']
 
 module_logger = logging.getLogger(__name__)
 
-class AutoReconnectingProxy(Pyro4.core.Proxy):
+class AutoReconnectingProxy(Pyro4.Proxy):
     """
     A Pyro proxy that automatically recovers from a server disconnect.
     It does this by intercepting every method call and then it first 'pings'
@@ -27,8 +27,8 @@ class AutoReconnectingProxy(Pyro4.core.Proxy):
         # the original method (it will reconnect automatically).
         if self._pyroConnection:
             try:
-                Pyro4.core.message.Message.ping(self._pyroConnection, hmac_key=None)    # utility method on the Message class
-            except (Pyro4.core.errors.ConnectionClosedError, Pyro4.core.errors.CommunicationError):
+                Pyro4.message.Message.ping(self._pyroConnection, hmac_key=None)    # utility method on the Message class
+            except (Pyro4.errors.ConnectionClosedError, Pyro4.errors.CommunicationError):
                 self._pyroReconnect()
         return super(AutoReconnectingProxy, self)._pyroInvoke(*args, **kwargs)
 
@@ -71,7 +71,7 @@ class Pyro4Client(object):
         t0 = time.time()
         try:
             pinged = self.server.ping()
-        except (Pyro4.core.errors.DaemonError, AttributeError, Pyro4.core.errors.CommunicationError):
+        except (Pyro4.errors.DaemonError, AttributeError, Pyro4.errors.CommunicationError):
             self.connected = False
             self.logger.info("Trying to reconnect...")
             self.server = self.tunnel.get_pyro_object(self.proxy_name)

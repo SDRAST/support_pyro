@@ -1,6 +1,6 @@
 import logging
 
-import Pyro4
+import Pyro5
 
 from .. import __version__ as pyro_support_version
 
